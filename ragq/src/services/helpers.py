@@ -1,8 +1,12 @@
-import zmq
+import os
+import multiprocessing
+import importlib
+from abc import ABC, abstractmethod
 
+import zmq
+import msgpack
 
 def start_proxy(frontend_url, backend_url):
-    import zmq
     print(f'\033[91mstart proxy {frontend_url} {backend_url}\033[0m')
     context = zmq.Context()
     frontend = context.socket(zmq.ROUTER)
@@ -11,11 +15,6 @@ def start_proxy(frontend_url, backend_url):
     backend.bind(backend_url)
     zmq.proxy(frontend, backend)
 
-from abc import ABC, abstractmethod
-import os
-import msgpack
-
- 
 
 class ServiceWorker(ABC):
     UNSUPPORTED_COMMAND = 'Unsupported command'
@@ -26,7 +25,7 @@ class ServiceWorker(ABC):
         self.socket = self.context.socket(zmq.REP)
         self.socket.connect(backend_url)
         print(f"\033[93m Service worker {self.__class__.__name__} connected to {backend_url} at process {os.getpid()}\033[0m")
-    
+
     @abstractmethod
     def init_with_config(self,config):
         pass
@@ -39,6 +38,7 @@ class ServiceWorker(ABC):
         while True:
             message = self.socket.recv()
             cmd = msgpack.unpackb(message, raw=False)
+            print(cmd, 'tttttt')
             try:
                 resp = self.process(cmd)
                 print(resp)
@@ -53,7 +53,7 @@ class ServiceWorker(ABC):
                 self.socket.send(msgpack.packb(resp, use_bin_type=True))
 
 def start_process(module_name,backend_url,config):
-    import importlib
+    print(module_name, 'yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy')
     module = importlib.import_module(module_name)
     class_name = config.get("class_name","ServiceWorker")
     service_cls = getattr(module,class_name)
@@ -67,7 +67,6 @@ def start_service(service_cls :str,config):
     print(f"\033[91mStarting service {service_cls} with backend url {backend_url} and frontend url {frontend_url}\033[0m")
     num_workers = config.get("num_workers",1)
     spawn_method = config.get("spawn_method","fork")
-    import multiprocessing
     multiprocessing.set_start_method(spawn_method, force=True)
     print(f'\033[91mStarting {num_workers} workers\033[0m')
     for i in range(num_workers):

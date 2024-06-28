@@ -1,6 +1,8 @@
 import sqlite3
 import uuid
-from helpers import ServiceWorker
+import time
+
+from src.services.helpers import ServiceWorker as _ServiceWorker
 
 table_name = 'file_status'
 status_table_name = 'file_status'
@@ -8,7 +10,6 @@ chunk_table_name = 'chunk_status'
 create_status_table_sql = "create table if not exists file_status (file_path text primary key, status text, last_updated text)"
 create_chunk_table_sql = "create table if not exists chunk_status (file_path text, chunk_id integer, status text,content text,uuid text, last_updated text, primary key(file_path,chunk_id))"
 valid_status = ['waitinglist','processing','processed','failed']
-import time
 
 class FileStatusManager:
     def __init__(self,db_path) -> None:
@@ -137,7 +138,7 @@ def chunk_file_contents(file_path,chunk_size=1024):
             chunks.append(str_input)
     return chunks
 
-class ServiceWorker(ServiceWorker):
+class ServiceWorker(_ServiceWorker):
     def init_with_config(self,config):
         self.db_path = config['db_path']
         self.fsm = FileStatusManager(self.db_path)
@@ -181,26 +182,3 @@ class ServiceWorker(ServiceWorker):
             return exists 
         else:
             return ServiceWorker.UNSUPPORTED_COMMAND
-   
-if __name__ == '__main__':
-    file_name = '/home/rwkv/Peter/RaqQ-master/README.md'
-    file_content = chunk_file_contents(file_name)
-    db_path = '/home/rwkv/Peter/RaqQ-master/src/services/chroma/files_services.db'
-    fsm = FileStatusManager(db_path)
-    fsm.set_file_status(file_name,'processing')
-    print(fsm.add_file_chunks(file_name,file_content))
-    print(fsm.get_file_status(file_name))
-    print(fsm.get_chunks_status(file_name))
-    fsm.set_chunk_status(file_name,0,'processed')
-    print(fsm.get_chunk_content(file_name,0))
-    print(fsm.get_chunk_uuid(file_name,0))
-    print(fsm.get_chunks_status(file_name))
-    fsm.delete_file(file_name)
-    print(fsm.get_file_status(file_name))
-    fsm.close()
-
-    from threading import Thread
-    monitor_thread = FileStatusMonitorThread(fsm)
-    t = Thread(target=monitor_thread.run)
-    t.start()
-    t.join()

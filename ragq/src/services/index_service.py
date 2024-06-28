@@ -1,29 +1,34 @@
-CHROMA_DB_COLLECTION_NAME = 'initial'
-from helpers import ServiceWorker
+import time
+import subprocess
+
 import chromadb
+
+from src.services.helpers import ServiceWorker as _ServiceWorker
+from src.clients.llm_client import LLMClient
+
+
+CHROMA_DB_COLLECTION_NAME = 'initial'
+
 
 def init_once(config):
     chroma_path = config["chroma_path"]
     chroma_port = config["chroma_port"]
     chroma_host = config["chroma_host"]
     print(f"Start chroma db")
-    #spawn a process "chroma run --path chroma_path --port chroma_port --host chroma_host" 
-    import subprocess
+    #spawn a process "chroma run --path chroma_path --port chroma_port --host chroma_host"
     command = f"chroma run --path {chroma_path} --port {chroma_port} --host {chroma_host}"
     process = subprocess.Popen(command,shell=True)
     print(f"Started indexing service with command {command}, pid is {process.pid}")
-    import time
     time.sleep(5)
 
     
-class ServiceWorker(ServiceWorker):
+class ServiceWorker(_ServiceWorker):
     _has_run_init = False
     @staticmethod
     def init_chroma_db(cls,chroma_path,chroma_host,chroma_port):
         if not cls._has_run_init:
             print(f"Start chroma db")
             #spawn a process "chroma run --path chroma_path --port chroma_port --host chroma_host" 
-            import subprocess
             command = f"chroma run --path {chroma_path} --port {chroma_port} --host {chroma_host}"
             process = subprocess.Popen(command,shell=True)
             print(f"Started indexing service with command {command}, pid is {process.pid}")
@@ -34,7 +39,6 @@ class ServiceWorker(ServiceWorker):
     def init_with_config(self, config):
         
         llm_front_end_url = config["llm_front_end_url"]
-        from llm_client import LLMClient
         self.llm_client = LLMClient(llm_front_end_url)
         chroma_port = config["chroma_port"]
         chroma_host = config["chroma_host"]
