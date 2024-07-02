@@ -95,7 +95,7 @@ class Jsonl2Binidx:
 
         with fileinput.input(self._tmp_file_name, encoding="utf-8") as ffff:
             for line in ffff:
-                x = json.loads(line)["text"]  # TODO 待优化 可用性能更高的反序列工具，数据量大的话，优势就可以体现出来
+                x = json.loads(line)["text"]  # TODO 待优化 可用性能更高的反序列工具，数据量大的话，优势就可以体现出来, 数据不合法怎么处理
                 self.add_raw(x)
         self.builder.finalize(f"{self.output_file_name_prefix}.idx")
         print("done")

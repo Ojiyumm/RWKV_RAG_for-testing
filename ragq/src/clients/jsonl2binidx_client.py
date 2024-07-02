@@ -11,7 +11,7 @@ class Jsonl2BinIdxClient(object):
         self.socket.setsockopt(zmq.RCVTIMEO, 60000) # TODO 设置接受操作超时时间，是否合理，如果文件很大，转换时间会很长
 
 
-    def transform(self,jsonl_file: str,n_epoch: int,output_path: str,context_len: int):
+    def transform(self,jsonl_file: str=None,n_epoch: int=3,output_path: str=None,context_len: int=1024):
         """
         jsonl转换成binidx
         """

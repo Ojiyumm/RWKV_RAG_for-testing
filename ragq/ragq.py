@@ -1,11 +1,13 @@
-import streamlit as st
-from index_client import IndexClient
-from llm_client import LLMClient
 import uuid
 import json
 import os
-from loader import load_and_split_text
-from internet import search_on_baike
+
+import streamlit as st
+
+from src.clients.index_client import IndexClient
+from src.clients.llm_client import LLMClient
+from src.utils.loader import load_and_split_text
+from src.utils.internet import search_on_baike
 def main():
     # 初始化客户端
     index_client = IndexClient("tcp://localhost:7783")
