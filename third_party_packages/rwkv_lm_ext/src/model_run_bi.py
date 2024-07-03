@@ -1,12 +1,8 @@
 ########################################################################################################
 # The RWKV Language Model - https://github.com/BlinkDL/RWKV-LM
 ########################################################################################################
-
 import os
-parent_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
-import sys
-sys.path.append(parent_path)
-print(f'add path: {parent_path} to sys.path')
+
 os.environ['RWKV_JIT_ON'] = '0'
 os.environ['RWKV_T_MAX'] = '4096'
 os.environ['RWKV_FLOAT_MODE'] = 'bf16'
@@ -18,8 +14,6 @@ import torch
 # torch._C._jit_set_profiling_executor(True)
 # torch._C._jit_set_profiling_mode(True)
 import torch.nn as nn
-from torch.nn import functional as F
-import pytorch_lightning as pl
 from peft.tuners.lora.layer import LoraLayer
 def __nop(ob):
     return ob
@@ -41,7 +35,7 @@ from torch.utils.cpp_extension import load
 HEAD_SIZE = int(os.environ["RWKV_HEAD_SIZE_A"])
 
 if 'x060' in os.environ["RWKV_MY_TESTING"]:
-    rwkv6 = load(name="rwkv6", sources=[f"{parent_path}/cuda/rwkv6_op.cpp", f"{parent_path}/cuda/rwkv6.cu"],
+    rwkv6 = load(name="rwkv6", sources=["cuda/wkv6_op.cpp", "cuda/wkv6_cuda.cu"],
                     verbose=True, extra_cuda_cflags=["-res-usage", "--use_fast_math", "-O3", "-Xptxas -O3", "--extra-device-vectorization", f"-D_N_={HEAD_SIZE}", f"-D_T_={4096}"])
     print(f"Loaded RWKV6 CUDA Kernel:{rwkv6}")
     class RWKV_6(torch.autograd.Function):
@@ -1149,168 +1143,3 @@ def my_print(s):
     global gen_cnt
     gen_cnt += 1
     print(s, end='', flush=True)
-
-if __name__ == '__main1__':
-    torch.backends.cudnn.benchmark = True
-    ckpt = '/media/yueyulin/KINGSTON/models/rwkv6/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth'
-    device = 'cuda'
-    dtype = torch.bfloat16
-    args = create_empty_args()
-    w = load_embedding_ckpt_and_parse_args(ckpt, args)
-    print(args)
-    model = RWKV(args)
-    info = model.load_state_dict(w)
-    model.eval()
-    print(model)
-    print(info)
-    gen_args = PIPELINE_ARGS(temperature = 1.0, top_p = 0.8, top_k = 100, # top_k = 0 then ignore
-                        alpha_frequency = 0.25,
-                        alpha_presence = 0.25,
-                        alpha_decay = 0.996, # gradually decay the penalty
-                        token_ban = [], # ban the generation of some tokens
-                        token_stop = [0,2], # stop generation whenever you see any token here
-                        chunk_len = 256) # split input into chunks to save VRAM (shorter -> slower)
-    tokenizer_file = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))),'tokenizer','rwkv_vocab_v20230424.txt')
-    from tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
-    tokenizer = TRIE_TOKENIZER(tokenizer_file)
-    ctx = '你是一个编程助手，我会向你提出需求，你需要根据需求编写代码。\nBot:好的，请提出需求。\nUser：编写一个函数，输入一个Shape是(B,T,C)的张量，把一个全零的(C)张量扩展成(B,1,C)，和输入张量相加，最后变成(B,T+1,C)。请用PyTorch实现。\nBot:好的，请稍等。\n'
-    print(tokenizer.encode(ctx))
-    model = model.to(dtype)
-    model = model.to(device)
-    with torch.no_grad():
-        with torch.autocast(enabled=True,device_type='cuda',dtype=dtype):
-            output = generate(model, ctx,tokenizer, token_count=512, args=gen_args,callback=my_print)
-        print(output)
-
-    bi_lora_path = '/media/yueyulin/KINGSTON/models/rwkv6/lora/bi-encoder/add_mlp_in_batch_neg/epoch_0_step_200000/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth.pth'
-    cross_lora_path = '/media/yueyulin/KINGSTON/models/rwkv6/lora/cross-encoder/epoch_0_step_500000/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth.pth'
-    fusedEncoder = BiCrossFusionEncoder(model,bi_lora_path,cross_lora_path,tokenizer,dtype=dtype,lora_type='lora',lora_r=8,lora_alpha=32,add_mlp=True,mlp_dim=1024,target_modules=['emb','ffn.key','ffn.value','ffn.receptance'],cross_adapter_name='cross_encoder_lora',original_cross_adapter_name='embedding_lora',bi_adapter_name='bi_embedding_lora',original_bi_adapter_name='embedding_lora',sep_token_id = 2)
-    print(fusedEncoder.bi_encoder)
-    print(fusedEncoder.cross_encoder)
-
-    texts = ['我打算取消订单','我要取消订单','我要退货','我要退款']
-    outputs = [fusedEncoder.encode_texts(text) for text in texts]
-    print(outputs)
-    from sentence_transformers.util import pairwise_cos_sim
-    for qid in range(len(texts)):
-        query = outputs[qid]
-        for i in range(len(texts)):
-            if i != qid:
-                print(f'{texts[qid]} vs {texts[i]} is {pairwise_cos_sim(query.unsqueeze(0),outputs[i].unsqueeze(0))}')
-
-        print('-----------------------')
-    enable_lora(model,enable=False)
-    with torch.no_grad():
-        with torch.autocast(enabled=True,device_type='cuda',dtype=dtype):
-            output = generate(model, ctx,tokenizer, token_count=512, args=gen_args,callback=my_print)
-        print(output)
-
-    out  = fusedEncoder.cross_encode_texts(texts[0],"北京是中华人民共和国不可分割的一部分")
-    print(out)
-
-    out = fusedEncoder.cross_encode_texts(texts[0],output)
-    print(out)
-
-    out = fusedEncoder.cross_encode_texts(texts[0],texts[1])
-    print(out)
-    out = fusedEncoder.cross_encode_texts(texts[0],texts[2])
-    print(out)
-    out = fusedEncoder.cross_encode_texts(texts[0],texts[3])
-    print(out)
-    out = fusedEncoder.cross_encode_texts(texts[2],texts[3])
-    print(out)
-if __name__ == '__main__':
-    torch.backends.cudnn.benchmark = True
-    ckpt = '/media/yueyulin/KINGSTON/models/rwkv6/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth'
-    device = 'cuda'
-    dtype = torch.bfloat16
-    args = create_empty_args()
-    w = load_embedding_ckpt_and_parse_args(ckpt, args)
-    print(args)
-    model = RWKV(args)
-    info = model.load_state_dict(w)
-    model.eval()
-    print(model)
-    print(info)
-
-    gen_args = PIPELINE_ARGS(temperature = 1.0, top_p = 0.8, top_k = 100, # top_k = 0 then ignore
-                        alpha_frequency = 0.25,
-                        alpha_presence = 0.25,
-                        alpha_decay = 0.996, # gradually decay the penalty
-                        token_ban = [], # ban the generation of some tokens
-                        token_stop = [0,2], # stop generation whenever you see any token here
-                        chunk_len = 256) # split input into chunks to save VRAM (shorter -> slower)
-    tokenizer_file = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))),'tokenizer','rwkv_vocab_v20230424.txt')
-    from tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
-    tokenizer = TRIE_TOKENIZER(tokenizer_file)
-    ctx = '你是一个编程助手，我会向你提出需求，你需要根据需求编写代码。\nBot:好的，请提出需求。\nUser：编写一个函数，输入一个Shape是(B,T,C)的张量，把一个全零的(C)张量扩展成(B,1,C)，和输入张量相加，最后变成(B,T+1,C)。请用PyTorch实现。\nBot:好的，请稍等。\n'
-    print(tokenizer.encode(ctx))
-    model = model.to(dtype)
-    model = model.to(device)
-    with torch.no_grad():
-        with torch.autocast(enabled=True,device_type='cuda',dtype=dtype):
-            output = generate(model, ctx,tokenizer, token_count=512, args=gen_args,callback=my_print)
-        print(output)
-
-    lora_path = '/media/yueyulin/KINGSTON/models/rwkv6/lora/bi-encoder/en_wiki_256_att_ffn/epoch_0_step_200000/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth.pth'
-    lora_path = '/media/yueyulin/KINGSTON/models/rwkv6/tmp/20240424-225237/trainable_model/epoch_0_step_300000/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth.pth'
-    bi_encoder = BiEncoder(model,lora_path,tokenizer,dtype=dtype,lora_type='lora',add_mlp=True,mlp_dim=1024,lora_r=8,lora_alpha=32,target_modules=['emb','att.key','att.value','att.receptance','ffn.key','ffn.value','ffn.receptance'],adapter_name='bi_embedding_lora',original_adapter_name='embedding_lora')
-    print(bi_encoder)
-    embeddings = bi_encoder.encode_texts(output)
-    print(embeddings)
-    print(embeddings.shape)
-
-    texts = ['I\'m good','I\'m OK.','I feel so bad','I think I\'m sick.']
-    texts = ['我打算取消订单','我要取消订单','我要退货','我要退款']
-    outputs = [bi_encoder.encode_texts(text) for text in texts]
-
-
-    print(outputs)
-    from sentence_transformers.util import pairwise_cos_sim
-    for qid in range(len(texts)):
-        query = outputs[qid]
-        for i in range(len(texts)):
-            if i != qid:
-                print(f'{texts[qid]} vs {texts[i]} is {pairwise_cos_sim(query.unsqueeze(0),outputs[i].unsqueeze(0))}')
-
-        print('-----------------------')
-
-   
-    # cross_lora_path = '/media/yueyulin/KINGSTON/models/rwkv6/lora/cross-encoder/epoch_0_step_500000/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth.pth'
-    # cross_encoder = CrossEncoder(model,cross_lora_path,tokenizer,dtype=dtype,lora_type='lora',lora_r=8,lora_alpha=32,target_modules=['emb','ffn.key','ffn.value','ffn.receptance'],adapter_name='cross_encoder_lora',original_adapter_name='embedding_lora',sep_token_id = 2)
-    # print(cross_encoder)
-    # print(model)
-    # out  = cross_encoder.encode_texts(texts[0],texts[1])
-    # print(out)
-
-    # enable_lora(model,enable=False)
-    # with torch.no_grad():
-    #     with torch.autocast(enabled=True,device_type='cuda',dtype=dtype):
-    #         output = generate(model, ctx,tokenizer, token_count=512, args=gen_args,callback=my_print)
-    #     print(output)
-
-    # texts = ['我打算取消订单','我要取消订单','我要退货','我要退款']
-    # outputs = [bi_encoder.encode_texts(text) for text in texts]
-
-
-    # print(outputs)
-    # from sentence_transformers.util import pairwise_cos_sim
-    # for qid in range(len(texts)):
-    #     query = outputs[qid]
-    #     for i in range(len(texts)):
-    #         if i != qid:
-    #             print(f'{texts[qid]} vs {texts[i]} is {pairwise_cos_sim(query.unsqueeze(0),outputs[i].unsqueeze(0))}')
-
-    #     print('-----------------------')
-
-    # enable_lora(model,enable=False)
-    # with torch.no_grad():
-    #     with torch.autocast(enabled=True,device_type='cuda',dtype=dtype):
-    #         output = generate(model, ctx,tokenizer, token_count=512, args=gen_args,callback=my_print)
-    #     print(output)
-
-    # out  = cross_encoder.encode_texts(texts[0],"北京是中华人民共和国不可分割的一部分")
-    # print(out)
-
-    # out = cross_encoder.encode_texts(texts[0],output)
-    # print(out)

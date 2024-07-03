@@ -44,28 +44,5 @@ def convert_parquet_2_jsonl(input_file,output_jsonl,inquired_task_type='阅读�
     progress.close()
     if output_fp is not None:
         output_fp.close()
-if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--input_dir', type=str, help='input_dir',default='/media/yueyulin/data_4t/data/coig_pc/')
-    parser.add_argument('--output_dir', type=str, help='output_dir',default='/media/yueyulin/data_4t/data/coig_pc_jsonl/')
-    parser.add_argument('--task_type',type=str,default='阅读理解')
-    args = parser.parse_args()
-    import os
-    import multiprocessing
-    os.makedirs(args.output_dir, exist_ok=True)
 
-    worker_args = []
-    for file in os.listdir(args.input_dir):
-        if file.endswith('.parquet'):
-            input_file = os.path.join(args.input_dir,file)
-            output_file = os.path.join(args.output_dir,file.split('.')[0]+'.jsonl')
-            worker_args.append((input_file,output_file,args.task_type))
-            
-    print(worker_args)
-    with multiprocessing.Pool(processes=2) as pool:
-        pool.starmap(convert_parquet_2_jsonl,worker_args)
-
-    print('done')
-                
             

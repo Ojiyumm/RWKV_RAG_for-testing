@@ -35,16 +35,4 @@ def convert_ie_2_instruction(input_jsonl :str, output_fp, cache_list,task):
         for item in cache_list:
             output_fp.write(orjson.dumps(item).decode() + '\n')
         cache_list.clear()
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--input_jsonl', type=str, required=True)
-    parser.add_argument('--output_jsonl', type=str, required=True)
-    parser.add_argument('--task', type=str, default='NER')
-    args = parser.parse_args()
-    output_fp = open(args.output_jsonl, 'w')
-    with open(args.input_jsonl, 'r') as fp:
-        cache_list = []
-        for line in fp:
-            convert_ie_2_instruction(line, output_fp, cache_list,args.task)
-    convert_ie_2_instruction('FLUSH', output_fp, cache_list,args.task)
-    print(f'finish {args.output_jsonl}')
+

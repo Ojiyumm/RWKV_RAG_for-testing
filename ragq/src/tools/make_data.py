@@ -11,7 +11,7 @@ import fileinput
 import numpy as np
 
 from src.tools.binidx import MMapIndexedDataset
-from src.tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
+from tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
 
 
 def index_file_path(prefix_path):
@@ -68,7 +68,7 @@ class Jsonl2Binidx:
         self._tmp_file_name = 'make_data_temp.jsonl'  # 临时文件
         self.builder = MMapIndexedDatasetBuilder(f"{self.output_file_name_prefix}.bin")  # binidx 文件生成器
         self._count = 0  # 当前处理数据的条数
-        self.tokenizer = TRIE_TOKENIZER("src/tokenizer/rwkv_vocab_v20230424.txt")
+        self.tokenizer = TRIE_TOKENIZER()
 
     def shuffle_jsonl_file(self):
         """
@@ -143,7 +143,6 @@ class Jsonl2Binidx:
                     if self.is_prime(i):
                         print(f"\n### magic_prime = {i} (for ctxlen {self.context_len})")
                         print(f'\n--my_exit_tokens {data_size} --magic_prime {i} --ctx_len {self.context_len}\n')
-                        exit(0)
 
     def add_raw(self, raw):
         """

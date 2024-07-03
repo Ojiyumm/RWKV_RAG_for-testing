@@ -80,7 +80,7 @@ file:
     port: 7786
   num_workers: 1
 jsonl2binidx:
-  enabled: false
+  enabled: true
   service_module: jsonl2binidx_service
   front_end:
     host: localhost
@@ -94,7 +94,7 @@ jsonl2binidx:
   output_path: /home/rwkv/Peter/Data/Telechat5
   n_epoch: 3
 tuning:
-  enabled: true
+  enabled: false
   service_module: tuning_service
   model_path: /home/rwkv/Peter/model/base/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth
   project_dir: /home/rwkv/Peter/RaqQ-master/src/services/chroma

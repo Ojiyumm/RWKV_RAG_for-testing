@@ -1,8 +1,4 @@
-import sys
-import os
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(parent_dir)
-print(f'appended {parent_dir} to sys.path')
+
 import glob
 import os
 #os.environ['HF_DATASETS_CACHE'] = '/media/yueyulin/data_4t/cache'
@@ -242,44 +238,3 @@ def creat_book_dataset(book_dir,
     processed_bookcorpus = tokenized_bookcorpus.map(book_pad_each_line, num_proc=16, batched=True,
                                                     remove_columns=["input_ids"])
     return processed_bookcorpus
-if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--wiki_dir', type=str,default=None)
-    parser.add_argument('--book_dir', type=str,default=None)
-    parser.add_argument('--wiki_zh_dir', type=str,default=None)
-    parser.add_argument('--output_dir', type=str,default='/media/yueyulin/data_4t/data/wikizh_mae_dataset')
-    parser.add_argument('--cci2_dir',type=str,default=None)
-    parser.add_argument('--tokenizer_file', type=str,default='/home/yueyulin/github/RWKV_LM_EXT/tokenizer/rwkv_vocab_v20230424.txt')
-    args = parser.parse_args()
-    
-    ds = []
-    if args.wiki_dir is not None:
-        wiki_dataset = create_wiki_dataset(args.wiki_dir, args.tokenizer_file, 512)
-        print(wiki_dataset)
-        print(wiki_dataset[0])
-        print('-----------------------------------------')
-        ds.append(wiki_dataset)
-    if args.book_dir is not None:
-        book_dataset = creat_book_dataset(args.book_dir, args.tokenizer_file, 512)
-        print(book_dataset)
-        print(book_dataset[0])
-        print('-----------------------------------------')
-        ds.append(book_dataset)
-    if args.cci2_dir is not None:
-        cci2_dataset = create_cci2_dataset(args.cci2_dir, args.tokenizer_file, 512)
-        print(cci2_dataset)
-        print(cci2_dataset[0])
-        print('-----------------------------------------')
-        ds.append(cci2_dataset)
-    if args.wiki_zh_dir is not None:
-        wiki_zh_dataset = create_wiki_zh_dataset(args.wiki_zh_dir, args.tokenizer_file, 512)
-        print(wiki_zh_dataset)
-        print(wiki_zh_dataset[0])
-        print('-----------------------------------------')
-        ds.append(wiki_zh_dataset)
-    os.makedirs(args.output_dir,exist_ok=True)
-    concatenated_dataset = datasets.concatenate_datasets(ds)
-    print(concatenated_dataset)
-    print(concatenated_dataset[0])
-    concatenated_dataset.save_to_disk(args.output_dir)

@@ -9,7 +9,7 @@ from rwkv_lm_ext.src.model_run import (RWKV,RwkvForClassification,RwkvForSequenc
                                        PIPELINE_ARGS,create_empty_args,load_embedding_ckpt_and_parse_args,
                                        generate,generate_beamsearch)
 from rwkv_lm_ext.src.layers import inject_lora_adapter_with_state_dict,set_adapter
-from src.tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
+from tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
 
 
 os.environ['RWKV_JIT_ON'] = '1'
@@ -45,7 +45,7 @@ class LLMService:
                  sep_token_id = 2,
                  chat_pissa_path = None,
                  device = 'cuda',
-                 dtype = torch.bfloat16
+                 dtype = torch.float32
                  ) -> None:
         self.base_rwkv = base_rwkv
         args = create_empty_args()

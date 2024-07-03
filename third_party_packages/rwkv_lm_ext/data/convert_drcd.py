@@ -17,10 +17,4 @@ def convert_drcd_file(input_file,output_jsonl):
                         }
                         f.write(orjson.dumps(instructional_data).decode('UTF-8')+'\n')
                         
-if __name__ =='__main__':
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--input_file', type=str, help='input_file')
-    parser.add_argument('--output_sft_jsonl', type=str, help='output_sft_jsonl')
-    args = parser.parse_args()
-    convert_drcd_file(args.input_file,args.output_sft_jsonl)
+

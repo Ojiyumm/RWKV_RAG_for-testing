@@ -7,20 +7,31 @@ from configuration import Configuration
  # 添加其它依赖项目
 parent_dir = os.path.dirname(ragq_base_dir)  #ragq的上一级
 ext_project_package_dir = os.path.join(parent_dir, 'third_party_packages')
-required_projects = ['rwkv_lm_ext', 'rwkv_peft', 'fla', 'cuda']  # 需要依赖的第三方项目包
+required_projects = ['rwkv_lm_ext', 'rwkv_peft', 'fla', 'tokenizer']  # 需要依赖的第三方项目包
 
 for project_name in required_projects:
     ext_project_dir = os.path.join(ext_project_package_dir, project_name)
     if not os.path.exists(ext_project_dir):
         raise NotADirectoryError(f"This project requires the  {project_name} Please place it in the path {ext_project_dir}.")
     # 检查有没有加__init__.py文件
-    if project_name == 'cuda':
-        continue
     if not os.path.exists(os.path.join(ext_project_dir, '__init__.py')):
         raise FileNotFoundError(f"third-party project {project_name} must have an __init__.py file in the project directory.")
 
-
 sys.path.insert(0, ext_project_package_dir) # 加入第三方包的路径
+
+# 加入一些其他语言的静态文件路径到工作目录，这样third_party_packages里的代码使用相对地址时不会报错
+static_projects = ['cuda']
+for project_name in static_projects:
+    ext_project_dir = os.path.join(ext_project_package_dir, project_name)
+    if not os.path.exists(ext_project_dir):
+        raise NotADirectoryError(
+            f"This project requires the  {project_name} Please place it in the path {ext_project_dir}.")
+    if os.path.exists(project_name):
+        continue
+    try:
+        os.symlink(ext_project_dir, project_name)
+    except:
+        print(f"{project_name} already exists")
 
 from src.services.helpers import start_service
 

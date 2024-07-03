@@ -1,7 +1,7 @@
 ########################################################################################################
 # The RWKV Language Model - https://github.com/BlinkDL/RWKV-LM
 ########################################################################################################
-
+import os
 class TRIE:
     __slots__ = tuple("ch,to,values,front".split(","))
     to:list
@@ -47,7 +47,10 @@ class TRIE:
         return ret
 
 class TRIE_TOKENIZER():
-    def __init__(self, file_name):
+    def __init__(self, file_name=''): # 默认使用该目录下的文件
+        if not file_name:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            file_name = os.path.join(current_dir, 'rwkv_vocab_v20230424.txt')
         self.idx2token = {}
         sorted = [] # must be already sorted
         with open(file_name, "r", encoding="utf-8") as f:
