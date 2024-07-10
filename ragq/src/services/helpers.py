@@ -38,22 +38,18 @@ class ServiceWorker(ABC):
         while True:
             message = self.socket.recv()
             cmd = msgpack.unpackb(message, raw=False)
-            print(cmd, 'tttttt')
             try:
                 resp = self.process(cmd)
-                print(resp)
                 if resp==ServiceWorker.UNSUPPORTED_COMMAND:
                     resp = {"code": 400,"error": "Unsupported command"}
                 else:
                     resp = {"code": 200, "value": resp}
                 self.socket.send(msgpack.packb(resp, use_bin_type=True))
             except Exception as e:
-                print(f"Error processing command {cmd} with error {e}")
                 resp = {"code": 400,"error": str(e)}
                 self.socket.send(msgpack.packb(resp, use_bin_type=True))
 
 def start_process(module_name,backend_url,config):
-    print(module_name, 'yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy')
     module = importlib.import_module(module_name)
     class_name = config.get("class_name","ServiceWorker")
     service_cls = getattr(module,class_name)

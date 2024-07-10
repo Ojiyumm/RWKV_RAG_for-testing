@@ -46,6 +46,8 @@ class ServiceWorker(_ServiceWorker):
         #Init the chromadb if needed
         chroma_client = chromadb.HttpClient(host=chroma_host,
                                             port=chroma_port)
+        # TODO 多进程时，第一次运行时会报错
+        # TODO 如果用多进程的话，只能由一个进程去执行该操作
         if CHROMA_DB_COLLECTION_NAME not in [c.name for c in chroma_client.list_collections()]:
             chroma_client.create_collection(CHROMA_DB_COLLECTION_NAME,
                                             metadata={"hnsw:space": "cosine"})
@@ -57,7 +59,6 @@ class ServiceWorker(_ServiceWorker):
         self.chroma_port = chroma_port
         
     def process(self, cmd):
-        print(cmd, 'tttt')
         if cmd['cmd'] == 'INDEX_TEXTS':
             keys = cmd["keys"]
             values = cmd["texts"]

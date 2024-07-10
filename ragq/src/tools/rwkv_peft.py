@@ -109,7 +109,6 @@ class RWKVPEFTArgumentParser(Namespace):
 
             'train_type': ['none', str],
 
-
         }
 
         if pl.__version__[0] == '2':

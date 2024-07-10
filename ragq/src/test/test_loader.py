@@ -18,5 +18,5 @@ if os.path.isdir(args.input):
         files_to_process = [os.path.join(args.input, f) for f in os.listdir(args.input) if f.endswith(('.txt', '.pdf'))]
         for file in files_to_process:
             pool.apply(load_and_split_text, (file, args.output,args.chunk_size, args.chunk_overlap))
- else:
+else:
     load_and_split_text(args.input,  args.output,args.chunk_size, args.chunk_overlap)

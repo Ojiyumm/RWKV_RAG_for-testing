@@ -1,4 +1,6 @@
 import os
+import string
+import random
 
 import fitz  # PyMuPDF for PDF handling
 
@@ -44,3 +46,8 @@ def load_and_split_text(file_path, output_dir,chunk_size, chunk_overlap):
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(splitted_text)
     return chunks
+
+
+def get_random_string(length):
+    haracters = string.ascii_uppercase + string.digits
+    return ''.join(random.choices(haracters, k=length))

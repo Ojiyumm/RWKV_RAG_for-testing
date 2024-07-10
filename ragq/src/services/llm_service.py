@@ -113,7 +113,7 @@ class LLMService:
         self.chat_adapter_name = chat_adapter_name
         self.device = device
         self.dtype = dtype
-
+         # TODO 内部用，暂时写死，如果商业化的话，做好写成可配置的
         self.bgem3 = BGEM3FlagModel('/home/rwkv/Peter/model/bi/bge-m31',  
                        use_fp16=True) # Setting use_fp16 to True speeds up computation with a slight performance degradation
         self.reranker = FlagReranker('/home/rwkv/Peter/model/bi/BAAIbge-reranker-v2-m3', use_fp16=True) # Setting use_fp16 to True speeds up computation with a slight performance degradation
