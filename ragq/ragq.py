@@ -233,7 +233,7 @@ def jsonl2binidx_manager(client: Jsonl2BinIdxClient):
 
 
     st.title("准备微调数据")
-    epoch = st.number_input("Epoch:", min_value=1, value=1, key='tuning_epoch', max_value=10)
+    epoch = st.number_input("Epoch:", min_value=1, value=3, key='tuning_epoch', max_value=10)
     context_len = st.number_input("Context Length:", min_value=1, value=1024, key='tuning_context_len', disabled=True)
     # 输出路径
     output_dir = st.text_input("输出文件路径:", "/home/rwkv/Peter/Data/Telechat5", key="output_dir", disabled=True)
@@ -295,7 +295,7 @@ def tuning_manager(client: RWKVPEFTClient ,app_scenario,):
     if tuning_type == 'state':
         micro_bsz = st.number_input("micro_bsz:", min_value=1, value=1, key="micro_bsz")
         epoch_steps = st.number_input("epoch_steps:(如果微调训练数据表较少,建议调小该值)", min_value=1, value=800, key="epoch_steps")
-        epoch_count = st.number_input("epoch_count:", min_value=1, value=1, key="epoch_count",disabled=True)
+        epoch_count = st.number_input("epoch_count:", min_value=1, value=10, key="epoch_count")
         lr_init = st.number_input("lr_init:", min_value=0.0, value=1.0, key="lr_init")
         lr_final = st.number_input("lr_final:", min_value=0.0, value=1e-2, key="lr_final")
         warmup_steps = st.number_input("warmup_steps:", min_value=0, value=10, key="warmup_steps")
@@ -338,7 +338,7 @@ def tuning_manager(client: RWKVPEFTClient ,app_scenario,):
                 beta1=beta1, beta2=beta2, adam_eps=adam_eps,
                 accelerator=accelerator, devices=devices, precision=precision, strategy=strategy,
                 grad_cp=grad_cp, my_testing=my_testing,
-                train_type='state', dataload=dataload, quant=quant)
+                train_type='state', dataload=dataload, quant=quant, wandb='statetuning_test')
         elif tuning_type == 'pissa':
             client.pissa_train(load_model=load_model, proj_dir=proj_dir, data_file=data_file,
                                       data_type=data_type,
@@ -350,7 +350,7 @@ def tuning_manager(client: RWKVPEFTClient ,app_scenario,):
                                       devices=devices,precision=precision,strategy=strategy, my_testing=my_testing,
                                       lora_load=lora_load,lora=True,lora_r=lora_r,lora_alpha=lora_alpha,
                                       lora_dropout=lora_dropout,lora_parts=lora_parts, PISSA=True, svd_niter=svd_niter,
-                                      grad_cp=grad_cp,  dataload=dataload, quant=quant, wandb='quant')
+                                      grad_cp=grad_cp,  dataload=dataload, quant=quant)
         else:
             client.lora_train(load_model=load_model, proj_dir=proj_dir, data_file=data_file, data_type=data_type,
                                       vocab_size=vocab_size, ctx_len=ctx_len, epoch_steps=epoch_steps,
