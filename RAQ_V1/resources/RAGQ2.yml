@@ -1,0 +1,15 @@
+
+jsonl2binidx:
+  enabled: true
+  service_module: jsonl2binidx_service
+  front_end:
+    host: localhost
+    protocol: tcp
+    port: 7787
+  back_end:
+    host: localhost
+    protocol: tcp
+    port: 7788
+  jsonl_path: /home/rwkv/Peter/Data/Telechat5/top_1k.jsonl
+  output_path: /home/rwkv/Peter/Data/Telechat5
+  n_epoch: 3
