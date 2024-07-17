@@ -45,7 +45,7 @@ class LLMService:
                  sep_token_id = 2,
                  chat_pissa_path = None,
                  device = 'cuda',
-                 dtype = torch.float16
+                 dtype = torch.bfloat16
                  ) -> None:
         self.base_rwkv = base_rwkv
         args = create_empty_args()

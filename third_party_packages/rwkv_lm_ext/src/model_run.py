@@ -34,7 +34,7 @@ from torch.utils.cpp_extension import load
 HEAD_SIZE = int(os.environ["RWKV_HEAD_SIZE_A"])
 
 if 'x060' in os.environ["RWKV_MY_TESTING"]:
-    rwkv6 = load(name="rwkv6", sources=["cuda/wkv6_op.cpp", "cuda/wkv6_cuda.cu"],
+    rwkv6 = load(name="rwkv6", sources=["cuda/rwkv6_op.cpp", "cuda/rwkv6.cu"],
                     verbose=True, extra_cuda_cflags=["-res-usage", "--use_fast_math", "-O3", "-Xptxas -O3", "--extra-device-vectorization", f"-D_N_={HEAD_SIZE}", f"-D_T_={4096}"])
     print(f"Loaded RWKV6 CUDA Kernel:{rwkv6}")
     class RWKV_6(torch.autograd.Function):
