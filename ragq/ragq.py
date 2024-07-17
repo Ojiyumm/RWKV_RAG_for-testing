@@ -190,7 +190,7 @@ def knowledge_manager(index_client: IndexClient, llm_client: LLMClient):
     recall_button = st.button("召回")
 
     if recall_button and query_input:
-        search_results = index_client.search_nearby(query_input)['value']
+        search_results = index_client.search_nearby(query_input, collection_name=st.seesion_state_kb_name)['value']
         documents = search_results["documents"][0]
         st.write(documents)
         cross_scores = llm_client.cross_encode([query_input for i in range(len(documents))], documents)
