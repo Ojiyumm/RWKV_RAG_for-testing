@@ -6,13 +6,9 @@ os.environ['RWKV_HEAD_SIZE_A'] = '64'
 os.environ['RWKV_T_MAX'] = '4096'
 os.environ["RWKV_MY_TESTING"]='x060'
 os.environ['RWKV_CTXLEN'] = '4096'
-import sys
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(parent_dir)
-print(f'add {parent_dir} to sys path')
+
 from src.model_run import RWKV,RwkvForClassification,RwkvForSequenceEmbedding,PIPELINE_ARGS,create_empty_args,load_embedding_ckpt_and_parse_args,generate,generate_beamsearch
 import torch
-from torch.cuda import amp
 from src.layers import inject_lora_adapter_with_state_dict,set_adapter
 
 
@@ -199,52 +195,3 @@ class BiCrossFusionEncoder:
             with torch.autocast(enabled=True,device_type=self.device,dtype=self.dtype):
                 output = generate(self.rwkv,ctx,self.tokenizer,token_count=token_count,args=gen_args,callback=None)
         return output
-if __name__ == '__main__':
-    base_rwkv_model = '/media/yueyulin/KINGSTON/models/rwkv6/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth'
-    bi_lora_path = '/media/yueyulin/data_4t/models/lora/biencoder/epoch_1_step_430000/RWKV-x060-World-1B6-v2_rwkv_lora.pth'
-    cross_lora_path = '/media/yueyulin/data_4t/models/lora/cross_encoder/epoch_0_step_920000/RWKV-x060-World-1B6-v2_rwkv_lora.pth'
-    tokenizer_file = os.path.join(parent_dir,'tokenizer','rwkv_vocab_v20230424.txt')
-    from tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
-    tokenizer = TRIE_TOKENIZER(tokenizer_file)
-    chat_lora_path = '/media/yueyulin/data_4t/models/pissa_r64/epoch_0/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth.pth'
-    chat_pissa_path = '/media/yueyulin/data_4t/models/pissa_r64/init_pissa.pth'
-    chat_lora_r = 64
-    chat_lora_alpha = 64
-    fusedEncoder = BiCrossFusionEncoder(
-        base_rwkv_model,
-        bi_lora_path,
-        cross_lora_path,
-        chat_lora_path,
-        tokenizer,
-        chat_lora_r=chat_lora_r,
-        chat_lora_alpha=chat_lora_alpha,
-        chat_pissa_path=chat_pissa_path)
-
-    texts = ['我打算取消订单','我要取消订单','我要退货','我要退款']
-    outputs = fusedEncoder.encode_texts(texts)
-    outputs = torch.tensor(outputs)
-    print(outputs)
-    from sentence_transformers.util import pairwise_cos_sim
-    for qid in range(len(texts)):
-        query = outputs[qid]
-        for i in range(len(texts)):
-            if i != qid:
-                print(f'{texts[qid]} vs {texts[i]} is {pairwise_cos_sim(query.unsqueeze(0),outputs[i].unsqueeze(0))}')
-
-        print('-----------------------')
-    
-
-    texts_a = ['FAQ是什么？','FAQ是什么？','FAQ是什么？','FAQ是什么？']
-    texts_b = ['下图是百度百科对FAQ的解释，我们可以简单的理解其为，网站中的常见问题帮助中心。采用一问一答的方式帮助客户快速解决产品/服务问题！','：FAQ(Frequently Asked Questions)问答系统是目前应用最广泛的问答系统。这种问答系统的结构框架明了、实现简单、容易理解，非常适合作为问答系统入门学习时的观察对象。这里基于本人在问答系统建设方面的“多年”经验，对FAQ问答相关的定义、系统结构、数据集建设、关键技术、应用等方面进行了整理和介绍。','FAQ是英文 Frequently Asked Questions的缩写。中文意思是“常见问题”，或者更通俗点说，“常见问题解答”。FAQ是目前互联网上提供在线帮助的主要方式，通过事先组织一些常见的问答，在网页上发布咨询服务。','从技术，即实现方式的角度来看，问答系统有很多种，包括基于FAQ的问答、基于知识图谱的问答、基于文本的问答等等。这里围绕应用最为广泛的FAQ问答系统，对问答系统的定义、思想、基本结构、方法和应用价值进行介绍。']
-    outputs = fusedEncoder.cross_encode_texts(texts_a,texts_b)
-    print(outputs)
-
-
-    instruction ='根据给定的短文，回答以下问题：黄循财的是哪国人？'
-    input_text = '黄循财（英语：Lawrence Wong Shyun Tsai，1972年12月18日—），新加坡华裔政治人物，现任新加坡总理兼财政部部长、人民行动党社区基金会主席。他与王乙康和颜金勇共同主持了因应新加坡2019冠状病毒病大流行的多部委工作组。曾任新加坡副总理，教育部、国家发展部、文化、社区及青年部的部长，通讯及新闻部和财政部的第二部长，以及人民行动党副秘书长。[1]黄循财是人民行动党第四代领导层，也是人民行动党中央执行委员会首任副秘书长兼政策论坛顾问。'
-    output = fusedEncoder.sampling_generate(instruction,input_text)
-    print(output)
-
-    beam_results = fusedEncoder.beam_generate(instruction,input_text)
-    for result in beam_results:
-        print(result)

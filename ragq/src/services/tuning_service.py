@@ -47,6 +47,7 @@ class ServiceWorker(_ServiceWorker):
         adam_eps = cmd.get('adam_eps', 1e-8)
         my_testing = cmd.get('my_testing', 'x060')
         strategy = cmd.get('strategy', 'deepspeed_stage_1')
+        wandb = cmd.get('wandb', '')
 
         if received_cmd == "LORA":
             lora_r = cmd.get('lora_r', 64)
@@ -75,7 +76,7 @@ class ServiceWorker(_ServiceWorker):
                                       beta1=beta1,beta2=beta2,adam_eps=adam_eps,accelerator=accelerator,devices=devices,
                                       precision=precision,strategy=strategy,grad_cp=grad_cp,my_testing=my_testing,
                                       lora_load=lora_load,lora=lora,lora_r=lora_r,lora_alpha=lora_alpha,
-                                      lora_dropout=lora_dropout,lora_parts=lora_parts)
+                                      lora_dropout=lora_dropout,lora_parts=lora_parts,wandb=wandb)
         elif received_cmd == 'STATE_TUNING':
             micro_bsz = cmd.get('micro_bsz', 1)
             epoch_steps = cmd.get('epoch_steps', 800)
@@ -88,6 +89,7 @@ class ServiceWorker(_ServiceWorker):
             devices = cmd.get('devices', 1)
             precision = cmd.get('precision', 'bf16')
             grad_cp = cmd.get('grad_cp', 1)
+            print('rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr')
             trainer = RWKVPEFTTrainer(load_model=load_model, proj_dir=proj_dir, data_file=data_file, data_type=data_type,
                                       vocab_size= vocab_size, ctx_len=ctx_len, epoch_steps=epoch_steps,
                                       epoch_count=epoch_count,epoch_begin=epoch_begin,epoch_save=epoch_save,
@@ -96,7 +98,7 @@ class ServiceWorker(_ServiceWorker):
                                       beta1=beta1, beta2=beta2,adam_eps=adam_eps,
                                       accelerator=accelerator,devices=devices,precision=precision,strategy=strategy,
                                       grad_cp=grad_cp, my_testing=my_testing,
-                                      train_type='state', dataload=dataload, quant=quant)
+                                      train_type='state', dataload=dataload, quant=quant,wandb=wandb)
         elif received_cmd == 'PISSA':
             svd_niter = cmd.get('svd_niter', 4)
             lora_r = cmd.get('lora_r', 64)
@@ -117,7 +119,6 @@ class ServiceWorker(_ServiceWorker):
             lora_parts = cmd.get('lora_parts', 'att,ffn,time,ln')
             pissa = cmd.get('PISSA', True)
             dataload = cmd.get('dataload', 'pad')
-            wandb = cmd.get('wandb', 'quant')
             trainer = RWKVPEFTTrainer(load_model=load_model, proj_dir=proj_dir, data_file=data_file,
                                       data_type=data_type,
                                       vocab_size=vocab_size, ctx_len=ctx_len, epoch_steps=epoch_steps,

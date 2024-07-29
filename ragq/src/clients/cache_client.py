@@ -1,7 +1,8 @@
 import msgpack
+import zmq
+
 class CacheClient:
     def __init__(self, read_url, write_url):
-        import zmq
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
         self.socket.connect(read_url)

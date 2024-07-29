@@ -3,14 +3,12 @@ import math
 
 import torch
 from FlagEmbedding import FlagReranker, BGEM3FlagModel
+from rwkv.model import RWKV as OriginRWKV
+from rwkv.utils import PIPELINE, PIPELINE_ARGS
 
 from src.services.helpers import ServiceWorker as _ServiceWorker
-from rwkv_lm_ext.src.model_run import (RWKV,RwkvForClassification,RwkvForSequenceEmbedding,
-                                       PIPELINE_ARGS,create_empty_args,load_embedding_ckpt_and_parse_args,
-                                       generate,generate_beamsearch)
-from rwkv_lm_ext.src.layers import inject_lora_adapter_with_state_dict,set_adapter
-from src.tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
-
+from rwkv_lm_ext.src.model_run import generate_beamsearch
+from tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
 
 os.environ['RWKV_JIT_ON'] = '1'
 os.environ['RWKV_T_MAX'] = '4096'
@@ -22,224 +20,215 @@ os.environ['RWKV_CTXLEN'] = '4096'
 
 
 
+
+
 class LLMService:
     
     def __init__(self,
                  base_rwkv,
-                 bi_lora_path,
-                 cross_lora_path,
-                 chat_lora_path,
                  tokenizer,
-                 ce_lora_r=8,
-                 ce_lora_alpha=32,
-                 be_lora_r=8,
-                 be_lora_alpha=32,
-                 chat_lora_r=8,
-                 chat_lora_alpha=8,
-                 target_ce_modules=['emb','ffn.key','ffn.value','ffn.receptance'],
-                 target_be_modules=['emb','ffn.key','ffn.value','ffn.receptance'],
-                 target_chat_modules=['att','ffn'],
-                 cross_adapter_name='cross_encoder_lora',
-                 bi_adapter_name='bi_embedding_lora',
-                 chat_adapter_name='chat_lora',
-                 sep_token_id = 2,
-                 chat_pissa_path = None,
                  device = 'cuda',
-                 dtype = torch.bfloat16
+                 dtype = torch.bfloat16,
+                 **kwargs
                  ) -> None:
+        """
+        Args:
+            base_rwkv： str， the path of rwkv model
+            tokenizer:tokenizer.rwkv_tokenizer.TRIE_TOKENIZER
+        """
+
         self.base_rwkv = base_rwkv
-        args = create_empty_args()
-        w = load_embedding_ckpt_and_parse_args(base_rwkv,args)
-        rwkv = RWKV(args)
-        info = rwkv.load_state_dict(w)
-        print(f'load model from {base_rwkv},result is {info}')
-        should_delete_head = False
-        #load cross encoder and inject cross adapter
-        cross_encoder_dict = torch.load(cross_lora_path,map_location='cpu')
-        inject_lora_adapter_with_state_dict(
-            rwkv,
-            cross_adapter_name,
-            cross_encoder_dict,
-            ce_lora_r,
-            ce_lora_alpha,
-            targets=target_ce_modules,
-        )
-        self.cross_encoder = RwkvForClassification(rwkv,should_delete_head=should_delete_head)
-        self.cross_encoder.score.weight.data = cross_encoder_dict['score.weight']
-        print(f'load model from {cross_lora_path},result is {info}')
-        del cross_encoder_dict
-        #load bi encoder and inject bi adapter
-        bi_encoder_dict = torch.load(bi_lora_path,map_location='cpu')
-        inject_lora_adapter_with_state_dict(
-            rwkv,
-            bi_adapter_name,
-            bi_encoder_dict,
-            be_lora_r,
-            be_lora_alpha,
-            targets=target_be_modules,
-        )
-        add_mlp = 'dense.weight' in bi_encoder_dict
-        output_dim = 0
-        if add_mlp:
-            output_dim = bi_encoder_dict['dense.weight'].shape[0]
-        print(f'RWKV Embedding model add_mlp = {add_mlp} output_dim = {output_dim}')
-        self.bi_encoder = RwkvForSequenceEmbedding(rwkv,add_mlp=add_mlp,output_dim=output_dim,should_delete_head=should_delete_head)
-        if add_mlp:
-            self.bi_encoder.dense.weight.data = bi_encoder_dict['dense.weight']
-            self.bi_encoder.dense.bias.data = bi_encoder_dict['dense.bias']
-        #load chat lora and inject chat adapter
-        chat_lora_dict = torch.load(chat_lora_path,map_location='cpu')
-        pissa =  torch.load(chat_pissa_path, map_location='cpu') if chat_pissa_path else None
-        inject_lora_adapter_with_state_dict(
-            rwkv,
-            chat_adapter_name,
-            chat_lora_dict,
-            chat_lora_r,
-            chat_lora_alpha,
-            targets=target_chat_modules,
-            pissa_dict=pissa
-        )
-        self.tokenizer = tokenizer
-        self.sep_token_id = sep_token_id
-        self.rwkv = rwkv
-        
-        #move to device
-        self.cross_encoder = self.cross_encoder.to(device=device,dtype=dtype)
-        self.bi_encoder = self.bi_encoder.to(device=device,dtype=dtype)
-        self.rwkv = self.rwkv.to(device=device,dtype=dtype)
-        self.rwkv.eval()
-        self.cross_adapter_name = cross_adapter_name
-        self.bi_adapter_name = bi_adapter_name
-        self.chat_adapter_name = chat_adapter_name
+        self._is_state_tuning = True # 暂支持state，后续支持lora
         self.device = device
         self.dtype = dtype
+        self.kwargs = kwargs
 
-        self.bgem3 = BGEM3FlagModel('/home/rwkv/Peter/model/bi/bge-m31',  
-                       use_fp16=True) # Setting use_fp16 to True speeds up computation with a slight performance degradation
-        self.reranker = FlagReranker('/home/rwkv/Peter/model/bi/BAAIbge-reranker-v2-m3', use_fp16=True) # Setting use_fp16 to True speeds up computation with a slight performance degradation
-    def set_adapter(self, adapter_name: str | list[str]) -> None:
-        set_adapter(model=self.rwkv,adapter_name=adapter_name)
 
-    def encode_text(self,text,chunk_size=1024):
-        input_ids = self.tokenizer.encode(text)
-        input_ids.append(self.bi_encoder.embedding_id)
-        state = None
-        offset = 0
-        while offset < len(input_ids):
-            chunk = input_ids[offset:offset+chunk_size]
-            with torch.autocast(enabled=True,device_type=self.device,dtype=self.dtype):
-                outputs,state = self.bi_encoder(torch.tensor(chunk,dtype=torch.long,device=self.device),state=state)
-            offset += len(chunk)
+        strategy = kwargs.get('strategy', 'cuda fp16')
+        self.model = OriginRWKV(base_rwkv, strategy=strategy)
+        info = vars(self.model.args)
+        print(f'load model from {base_rwkv},result is {info}')
+        self.tokenizer = tokenizer
 
-        return outputs.tolist()
+        self.bgem3 = None
+        self.reranker = None
 
-    def encode_texts(self,texts):
-        self.set_adapter(self.bi_adapter_name)
-        return [self.encode_text(text) for text in texts]
+
+    def load_state_tuning(self, states_file):
+        assert states_file is not None
+        states = torch.load(states_file)
+        states_value = []
+
+        for i in range(self.model.args.n_layer):
+            key = f'blocks.{i}.att.time_state'
+            value = states[key]
+            prev_x = torch.zeros(self.model.args.n_embd, device=self.device, dtype=torch.float16)
+            prev_states = value.clone().detach().to(device=self.device, dtype=torch.float16).transpose(1, 2)
+            prev_ffn = torch.zeros(self.model.args.n_embd, device=self.device, dtype=torch.float16)
+            states_value.append(prev_x)
+            states_value.append(prev_states)
+            states_value.append(prev_ffn)
+        return states_value
+
+
+    def load_bgem3(self):
+        if self.bgem3 is not None:
+            return
+        kwargs = self.kwargs
+        model_path = kwargs.get('bgem3_path')
+        assert model_path is not None
+        self.bgem3 = BGEM3FlagModel(model_path,use_fp16=True)
+
+    def load_rerank(self):
+        if self.reranker is not None:
+            return
+        kwargs = self.kwargs
+        model_path = kwargs.get('rerank_path')
+        assert model_path is not None
+        self.reranker = FlagReranker(model_path,use_fp16=True)  # Setting use_fp16 to True speeds
+
     def get_embeddings(self,inputs):
         if isinstance(inputs,str):
             inputs = [inputs]
-        print(inputs)
-
+        self.load_bgem3()
         outputs = self.bgem3.encode(inputs, 
                                     batch_size=12, 
-                                    max_length=512, # If you don't need such a long length, you can set a smaller value to speed up the encoding process.
+                                    max_length=512,
                                     )['dense_vecs'].tolist()
 
-        print(outputs)
         return outputs
     def cross_encode_text(self,text_a, text_b):
-        text_a_ids = self.tokenizer.encode(text_a)
-        text_b_ids = self.tokenizer.encode(text_b)
-        input_ids = text_a_ids+[self.sep_token_id]+text_b_ids+[self.cross_encoder.class_id]
-        offset = 0
-        state = None
-        with torch.autocast(enabled=True,device_type=self.device,dtype=self.dtype):
-            while offset < len(input_ids):
-                chunk = input_ids[offset:offset+1024]
-                output,state = self.cross_encoder(torch.tensor(chunk,dtype=torch.long,device=self.device),state=state)
-                offset += len(chunk)
-        return output.item()
+        self.load_rerank()
+        score = self.reranker.compute_score([text_a, text_b])
+        return score
 
     def cross_encode_texts(self,texts_a, texts_b):
         assert len(texts_a) == len(texts_b)
-        self.set_adapter(self.cross_adapter_name)
         outputs = []
         for text_a,text_b in zip(texts_a,texts_b):
             outputs.append(self.cross_encode_text(text_a,text_b))
         return outputs
     
-    def beam_generate(self,instruction,input_text,token_count=128,num_beams=5,return_num_sequences=5,num_group=5,do_sample=True,is_sum_logprobs=True,length_penalty=0.6):
-        self.set_adapter(self.chat_adapter_name)
+    def beam_generate(self,instruction,input_text,token_count=128,num_beams=5,
+                      return_num_sequences=5,num_group=5,do_sample=True,
+                      is_sum_logprobs=True,length_penalty=0.6):
+        #self.set_adapter(self.chat_adapter_name) # TODO ???
         cat_char = '🐱'
         bot_char = '🤖'
         ctx = f'{cat_char}:{instruction}\n{input_text}\n{bot_char}:'
         with torch.no_grad():
             with torch.autocast(enabled=True,device_type=self.device,dtype=self.dtype):
-                results = generate_beamsearch(
-                    self.rwkv, 
-                    ctx,self.tokenizer, 
+                print('33333333')
+                try:
+                    results = generate_beamsearch(
+                    self.model,
+                    ctx,self.tokenizer,
                     token_count=token_count,
                     num_beams=num_beams,
                     return_num_sequences=return_num_sequences,
                     num_group=num_group,
                     do_sample=do_sample,
                     is_sum_logprobs=is_sum_logprobs,
-                    length_penalty=length_penalty)
-        results = [(self.tokenizer.decode(output.tolist()),math.exp(score.item()),beam_idx) for score, output,beam_idx in results]   
+                    length_penalty=length_penalty,
+                    device=self.device)
+                except:
+                    import traceback
+                    print(traceback.format_exc())
+        print('5555555')
+        results = [(self.tokenizer.decode(output.tolist()),math.exp(score.item()),beam_idx) for score, output,beam_idx in results]
+        print('2222222222')
         return results
 
-    def sampling_generate(self,instruction,input_text,token_count=128,
+    # def generate(self, pipeline: PIPELINE, ctx, token_count=100, args=PIPELINE_ARGS(), callback=None, state=None):
+    #     all_tokens = []
+    #     out_last = 0
+    #     out_str = ''
+    #     occurrence = {}
+    #     for i in range(token_count):
+    #
+    #         # forward & adjust prob.
+    #         tokens = pipeline.encode(ctx) if i == 0 else [token]
+    #         while len(tokens) > 0:
+    #             out, state = pipeline.model.forward(tokens[:args.chunk_len], state)
+    #             tokens = tokens[args.chunk_len:]
+    #
+    #         for n in args.token_ban:
+    #             out[n] = -float('inf')
+    #         for n in occurrence:
+    #             out[n] -= (args.alpha_presence + occurrence[n] * args.alpha_frequency)
+    #
+    #         # sampler
+    #         token = pipeline.sample_logits(out, temperature=args.temperature, top_p=args.top_p, top_k=args.top_k)
+    #         if token in args.token_stop:
+    #             break
+    #         all_tokens += [token]
+    #         for xxx in occurrence:
+    #             occurrence[xxx] *= args.alpha_decay
+    #
+    #         ttt = pipeline.decode([token])
+    #         www = 1
+    #         if ttt in ' \t0123456789':
+    #             www = 0
+    #         # elif ttt in '\r\n,.;?!"\':+-*/=#@$%^&_`~|<>\\()[]{}，。；“”：？！（）【】':
+    #         #     www = 0.5
+    #         if token not in occurrence:
+    #             occurrence[token] = www
+    #         else:
+    #             occurrence[token] += www
+    #         # print(occurrence) # debug
+    #
+    #         # output
+    #         tmp = pipeline.decode(all_tokens[out_last:])
+    #         if '\ufffd' not in tmp:  # is valid utf-8 string?
+    #             if callback:
+    #                 callback(tmp)
+    #             out_str += tmp
+    #             out_last = i + 1
+    #     return out_str
+    def sampling_generate(self,instruction,input_text,state_file,
                           temperature=1.0,
                           top_p=0,
                           top_k=0,
                           alpha_frequency=0.25,
                           alpha_presence=0.25,
                           alpha_decay=0.996,
-                          token_stop=[0,1]):
-        self.set_adapter(self.chat_adapter_name)
+                          template_prompt=None,
+                         ):
+        RWKV_PAD = self.tokenizer.encode('\n')  # we will use '\n' as PAD
+        STOP_TOKEN = RWKV_PAD + self.tokenizer.encode('\n\n')
+        print('stop token===============',STOP_TOKEN)
+        states_value = self.load_state_tuning(state_file)
         gen_args = PIPELINE_ARGS(temperature = temperature, top_p = top_p, top_k=top_k, # top_k = 0 then ignore
                         alpha_frequency = alpha_frequency,
                         alpha_presence = alpha_presence,
                         alpha_decay = alpha_decay, # gradually decay the penalty
-                        token_ban = [], # ban the generation of some tokens
-                        token_stop = [0,1], # stop generation whenever you see any token here
-                        chunk_len = 512)
-        cat_char = '🐱'
-        bot_char = '🤖'
-        ctx = f'User: 请阅读下文，回答:用文章中详细的数据以及逻辑回答{instruction}\\n{input_text}\\n问题:用文章中详细的数据以及逻辑回答{instruction}\\n\\nAssistant:'
+                        token_ban = [0], # ban the generation of some tokens
+                        token_stop = [11, 261], # stop generation whenever you see any token here
+                        chunk_len = 256)
+        if not template_prompt:
+            ctx = f'instruction: 请阅读下文，回答:{instruction}\\ninput:{input_text}\\n\\noutput:'
+        else:
+            ctx = template_prompt
         print('prompt=',ctx)
-        with torch.no_grad():
-            with torch.autocast(enabled=True,device_type=self.device,dtype=self.dtype):
-                output = generate(self.rwkv,ctx,self.tokenizer,token_count=token_count,args=gen_args,callback=None)
+        pipeline = PIPELINE(self.model, "rwkv_vocab_v20230424")
+        output = pipeline.generate(ctx, token_count=200, args=gen_args, state=states_value)
         return output,ctx
+
+
 class ServiceWorker(_ServiceWorker):
     def init_with_config(self, config):
 
         base_model_file = config["base_model_file"]
-        bi_lora_path = config["bi_lora_path"]
-        cross_lora_path = config["cross_lora_path"]
-        chat_lora_path = config["chat_lora_path"]
-        tokenizer_file = config["tokenizer_file"]
+        bgem3_path = config["bgem3_path"]
+        rerank_path = config["rerank_path"]
+
         try:
 
-            tokenizer = TRIE_TOKENIZER(tokenizer_file)
+            tokenizer = TRIE_TOKENIZER()
             print('imported tokenizer')
         except Exception as e:
-            print('failed to print tokenizer',e)    
-        device = config.get("device", 'cuda:3')
-        chat_lora_r = config["chat_lora_r"]
-        chat_lora_alpha = config["chat_lora_alpha"]
-        chat_pissa_path = config["chat_pissa_path"]
-        self.llm_service=LLMService(
-            base_model_file,
-            bi_lora_path,
-            cross_lora_path,
-            chat_lora_path,
-            tokenizer,
-            chat_lora_r=chat_lora_r,
-            chat_lora_alpha=chat_lora_alpha,
-            chat_pissa_path=chat_pissa_path)
+            raise ValueError('failed to print tokenizer',e)
+        self.llm_service = LLMService(base_model_file, tokenizer, bgem3_path=bgem3_path,rerank_path=rerank_path)
     
     def process(self, cmd):
         if cmd['cmd'] == 'GET_EMBEDDINGS':
@@ -256,20 +245,17 @@ class ServiceWorker(_ServiceWorker):
             input_text = cmd["input_text"]
             token_count = cmd.get('token_count', 128)
             num_beams = cmd.get('num_beams', 5)
-            return_num_sequences = cmd.get('return_num_sequences', 5)
-            num_group = cmd.get('num_group', 5)
-            do_sample = cmd.get('do_sample', True)
-            is_sum_logprobs = cmd.get('is_sum_logprobs', True)
-            length_penalty = cmd.get('length_penalty', 0.6)
             value=self.llm_service.beam_generate(instruction, input_text, token_count, num_beams)
             return value
         elif cmd['cmd'] == 'SAMPLING_GENERATE':
             instruction = cmd["instruction"]
             input_text = cmd["input_text"]
-            token_count = cmd.get('token_count', 128)  # 如果没有提供，默认值为128
             temperature = cmd.get('temperature', 1.0)
             top_p = cmd.get('top_p', 0)
-            value = self.llm_service.sampling_generate(instruction, input_text, token_count, temperature, top_p)    
+            state_file = cmd.get('state_file')
+            template_prompt = cmd.get('template_prompt')
+            value = self.llm_service.sampling_generate(instruction, input_text, state_file,temperature,top_p,
+                                                       template_prompt=template_prompt)
             return value       
         return ServiceWorker.UNSUPPORTED_COMMAND
 

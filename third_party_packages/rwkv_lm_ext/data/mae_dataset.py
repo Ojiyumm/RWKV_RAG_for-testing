@@ -1,7 +1,6 @@
 from copy import deepcopy
 import random
 import torch
-tokenizer = None
 def whole_word_mask(token_ids, mlm_probability,segments = None):
     if segments is None:
         mask = []
@@ -147,58 +146,3 @@ def mlm_collator(examples,
     batch['encoder_labels'] = torch.tensor(batch['encoder_labels'],dtype=torch.long)
 
     return batch
-
-
-if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--data_dir', type=str, help='input_file',default='/media/yueyulin/data_4t/data/mae_dataset')
-    parser.add_argument('--max_length',type=int,default=512)
-    parser.add_argument('--vocab_size',type=int,default=65536)
-    args = parser.parse_args()
-    import datasets
-    from datasets import load_from_disk
-    dataset = load_from_disk(args.data_dir)
-    print(dataset)
-    print(dataset[0])
-    from torch.utils.data import DataLoader
-    from functools import partial
-    collator = partial(mae_collator, max_seq_length=args.max_length, encoder_mlm_probability=0.3)
-    dataloader = DataLoader(dataset, batch_size=2, collate_fn=collator)
-    for batch in dataloader:
-        encoder_input_ids,encoder_labels,decoder_input_ids,decoder_labels = batch['encoder_input_ids'],batch['encoder_labels'],batch['decoder_input_ids'],batch['decoder_labels']
-        print(encoder_input_ids)
-        print(encoder_labels)
-        print(decoder_input_ids)
-        print(decoder_labels)
-        print(encoder_input_ids.shape)
-        print(encoder_labels.shape)
-        print(decoder_input_ids.shape)
-        print(decoder_labels.shape)
-        break
-
-    collator = partial(dup_mae_collator, max_seq_length=args.max_length, encoder_mlm_probability=0.3,vocab_size=args.vocab_size)
-    dataloader = DataLoader(dataset, batch_size=2, collate_fn=collator)
-    for batch in dataloader:
-        encoder_input_ids,encoder_labels,decoder_input_ids,decoder_labels,bag_word_weight = batch['encoder_input_ids'],batch['encoder_labels'],batch['decoder_input_ids'],batch['decoder_labels'],batch['bag_word_weight']
-        print(encoder_input_ids)
-        print(encoder_labels)
-        print(decoder_input_ids)
-        print(decoder_labels)
-        print(bag_word_weight)
-        print(encoder_input_ids.shape)
-        print(encoder_labels.shape)
-        print(decoder_input_ids.shape)
-        print(decoder_labels.shape)
-        print(bag_word_weight.shape)
-        break
-
-    collator = partial(mlm_collator, max_seq_length=args.max_length, encoder_mlm_probability=0.3)
-    dataloader = DataLoader(dataset, batch_size=2, collate_fn=collator)
-    for batch in dataloader:
-        encoder_input_ids,encoder_labels = batch['encoder_input_ids'],batch['encoder_labels']
-        print(encoder_input_ids.tolist())
-        print(encoder_labels.tolist())
-        print(encoder_input_ids.shape)
-        print(encoder_labels.shape)
-        break

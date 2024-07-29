@@ -31,12 +31,12 @@ async def search_on_baike(query, output_directory='.', filename=None):
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(content_text)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Search on Baike and save the content.")
-    parser.add_argument("--query", help="The keyword to search for.")
-    parser.add_argument("--output", default='.', help="Output directory (default: current directory).")
-    parser.add_argument("--filename", help="Optional, name of the output file (default: <query>.txt)")
-
-    args = parser.parse_args()
-
-    asyncio.run(search_on_baike(args.query, args.output, args.filename))
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser(description="Search on Baike and save the content.")
+#     parser.add_argument("--query", help="The keyword to search for.")
+#     parser.add_argument("--output", default='.', help="Output directory (default: current directory).")
+#     parser.add_argument("--filename", help="Optional, name of the output file (default: <query>.txt)")
+#
+#     args = parser.parse_args()
+#
+#     asyncio.run(search_on_baike(args.query, args.output, args.filename))

@@ -109,7 +109,6 @@ class RWKVPEFTArgumentParser(Namespace):
 
             'train_type': ['none', str],
 
-
         }
 
         if pl.__version__[0] == '2':
@@ -167,6 +166,7 @@ class RWKVPEFTTrainer:
     def run(self):
         rank_zero_info("########## work in progress ##########")
         args = self.args
+        print(args)
         if "deepspeed" in args.strategy:
             import deepspeed
         if args.random_seed >= 0:

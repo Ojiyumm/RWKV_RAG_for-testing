@@ -37,12 +37,8 @@ def tokenize_fn(examples, tokenizer,pad_id=0,eos_id=1,max_length=512,input_field
         inputs_ids.append(whole_ids)
         targets_ids.append(shifted_output_ids)
     return {'input_ids': inputs_ids, 'labels': targets_ids}
-tokenizer = None
-def tokenize_fn_no_chunk(examples, tokenizer_file,pad_id=0,eos_id=1,input_field = 'input', output_field = 'output'):
-    global tokenizer
-    if tokenizer is None:
-        from tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
-        tokenizer = TRIE_TOKENIZER(tokenizer_file)
+
+def tokenize_fn_no_chunk(examples, tokenizer,pad_id=0,eos_id=1,input_field = 'input', output_field = 'output'):
     inputs = examples[input_field]
     outputs = examples[output_field]
     inputs_ids = []
@@ -60,23 +56,19 @@ def create_variable_sized_sft_from_jsonl(input_jsonl, output_sft,tokenizer_file,
     ds = datasets.load_dataset('json', data_files=input_jsonl)['train']
     map_fn = functools.partial(convert_2_conversation, input_field=input_field, instruction_field=instruction_field, output_field=output_field)
     ds = ds.map(map_fn, batched=True, num_proc=4, remove_columns=ds.column_names)
-    import sys
-    import os
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    map_fn = functools.partial(tokenize_fn_no_chunk, tokenizer_file=tokenizer_file, input_field='input', output_field='output')
-    ds = ds.map(map_fn, batched=True, num_proc=8,remove_columns=ds.column_names)
+    from tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
+    tokenizer = TRIE_TOKENIZER(tokenizer_file)
+    map_fn = functools.partial(tokenize_fn_no_chunk, tokenizer=tokenizer, input_field='input', output_field='output')
+    ds = ds.map(map_fn, batched=True, num_proc=1,remove_columns=ds.column_names)
     sizes = [64,128,256,512,1024,2048]
     data = [[] for i in range(len(sizes)+1)]
     import bisect
-    from tqdm import tqdm
-    progress_bar = tqdm(total=len(ds),desc='splitting')
     for i, example in enumerate(ds):
         length = len(example['input_ids'])
         idx = bisect.bisect_left(sizes, length)
         if idx < len(sizes):
             data[idx].append(example)
-        progress_bar.update(1)
-    progress_bar.close()
+    
     for i in range(len(data)):
         ds_name = output_sft + f'ds_{sizes[i] if i < len(sizes) else "max"}'
         if len(data[i]) > 0:
@@ -92,35 +84,10 @@ def create_sft_from_jsonl(input_jsonl, output_sft,tokenizer_file,input_field = '
     ds = datasets.load_dataset('json', data_files=input_jsonl)['train']
     map_fn = functools.partial(convert_2_conversation, input_field=input_field, instruction_field=instruction_field, output_field=output_field)
     ds = ds.map(map_fn, batched=True, num_proc=4, remove_columns=ds.column_names)
-    import sys
-    import os
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
     tokenizer = TRIE_TOKENIZER(tokenizer_file)
     map_fn = functools.partial(tokenize_fn, tokenizer=tokenizer, input_field='input', output_field='output')
     ds = ds.map(map_fn, batched=True, num_proc=1,remove_columns=ds.column_names)
     ds.save_to_disk(output_sft)
 
-
-if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--input_dir', type=str, default='/media/yueyulin/data_4t/data/tigerbot_sft/')
-    parser.add_argument('--output_dir', type=str, default='/media/yueyulin/data_4t/data/tigerbot_sft_dataset/')
-    parser.add_argument('--tokenizer_file', type=str, default='/home/yueyulin/github/RWKV_LM_EXT/tokenizer/rwkv_vocab_v20230424.txt')
-    args = parser.parse_args()
-    import os
-    os.makedirs(args.output_dir, exist_ok=True)
-    import sys
-    tokenizer_file_parent_dir = os.path.dirname(os.path.dirname(args.tokenizer_file))
-    sys.path.append(tokenizer_file_parent_dir)
-
-    from tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
-    tokenizer = TRIE_TOKENIZER(args.tokenizer_file)
-    print(tokenizer)
-    for file in os.listdir(args.input_dir):
-        if file.endswith('.json') or file.endswith('.jsonl'):
-            input_jsonl = os.path.join(args.input_dir, file)
-            output_sft = os.path.join(args.output_dir, file.replace('.json', '_dataset_'))
-            create_variable_sized_sft_from_jsonl(input_jsonl, output_sft, args.tokenizer_file)
 

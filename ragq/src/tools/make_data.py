@@ -7,11 +7,13 @@ import json
 import random
 import os
 import fileinput
+import time
 
 import numpy as np
 
 from src.tools.binidx import MMapIndexedDataset
-from src.tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
+from src.utils.loader import get_random_string
+from tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
 
 
 def index_file_path(prefix_path):
@@ -52,23 +54,29 @@ class Jsonl2Binidx:
     jsonl文件转Binidx文件 用于rwkv训练
     """
 
-    def __init__(self, jsonl_file: str, n_epoch: int, output_path: str, context_len: int=1024):
+    def __init__(self, jsonl_file: str, n_epoch: int, output_path: str, context_len: int=1024, is_str=False):
         """
-        :param jsonl_file: jsonl文件路径
+        :param jsonl_file: jsonl文件路径 或者 符合要求的字符串
         :param n_epoch:epoch大小
         :param context_len: 上下文长度
         :param output_path: 目标文件路径
+        :param is_str: 是字符串还是文件
         """
         self.jsonl_file = jsonl_file
         self.n_epoch = n_epoch
         self.context_len = context_len
-        output_basename = os.path.splitext(os.path.basename(jsonl_file))[0]
-        output_file_name_prefix = os.path.join(output_path, output_basename)
+        self.is_str = is_str
+        if is_str:
+            output_basename = get_random_string(10) + str(int(time.time()))[-4:]
+            output_file_name_prefix = os.path.join(output_path, output_basename)
+        else:
+            output_basename = os.path.splitext(os.path.basename(jsonl_file))[0]
+            output_file_name_prefix = os.path.join(output_path, output_basename)
         self.output_file_name_prefix = output_file_name_prefix
-        self._tmp_file_name = 'make_data_temp.jsonl'  # 临时文件
+        self._tmp_file_name = '%s_make_data_temp.jsonl' % output_basename  # 临时文件
         self.builder = MMapIndexedDatasetBuilder(f"{self.output_file_name_prefix}.bin")  # binidx 文件生成器
         self._count = 0  # 当前处理数据的条数
-        self.tokenizer = TRIE_TOKENIZER("src/tokenizer/rwkv_vocab_v20230424.txt")
+        self.tokenizer = TRIE_TOKENIZER()
 
     def shuffle_jsonl_file(self):
         """
@@ -84,13 +92,30 @@ class Jsonl2Binidx:
                 for entry in non_empty_lines:
                     wf.write(entry + "\n")
 
+    def shuffle_jsonl_file_string(self):
+        """
+        按行随机打乱jsonl字符串， \n分割
+        """
+        with open(self._tmp_file_name, "w", encoding="utf-8") as wf:
+            rf = self.jsonl_file.split("\n")
+            non_empty_lines = [line.strip() for line in rf if line.strip()]
+            for i in range(self.n_epoch):
+                print(f"Shuffle: {i + 1} out of {self.n_epoch}")
+                random.shuffle(non_empty_lines)
+                for entry in non_empty_lines:
+                    wf.write(entry + "\n")
+
+
     def run(self):
         """
         转换数据
         """
 
-        print(f"### Convert {self.jsonl_file} to {self.output_file_name_prefix}.bin/idx...")
-        self.shuffle_jsonl_file()
+        print(f"### Convert input_file to {self.output_file_name_prefix}.bin/idx...")
+        if self.is_str:
+            self.shuffle_jsonl_file_string()
+        else:
+            self.shuffle_jsonl_file()
         print("### Building binidx...")
 
         with fileinput.input(self._tmp_file_name, encoding="utf-8") as ffff:
@@ -143,7 +168,6 @@ class Jsonl2Binidx:
                     if self.is_prime(i):
                         print(f"\n### magic_prime = {i} (for ctxlen {self.context_len})")
                         print(f'\n--my_exit_tokens {data_size} --magic_prime {i} --ctx_len {self.context_len}\n')
-                        exit(0)
 
     def add_raw(self, raw):
         """

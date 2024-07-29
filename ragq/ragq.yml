@@ -1,6 +1,6 @@
 
 cache_reader:
-  enabled: false
+  enabled: true
   db_file: /tmp/cache.db
   service_module: cache_service
   class_name: CacheReaderService
@@ -14,7 +14,7 @@ cache_reader:
     port: 7778
   num_workers: 4
 cache_writer:
-  enabled: false
+  enabled: true
   db_file: /tmp/cache.db
   service_module: cache_service
   class_name: CacheWriterService
@@ -28,7 +28,7 @@ cache_writer:
     port: 7780
   num_workers: 1
 llm:
-  enabled: false
+  enabled: true
   service_module: llm_service
   front_end:
     host: localhost
@@ -46,11 +46,13 @@ llm:
   chat_lora_path: /home/rwkv/Peter/model/chat/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth.pth
   chat_pissa_path: /home/rwkv/Peter/model/chat/init_pissa.pth
   tokenizer_file: /home/rwkv/Peter/RWKV_LM_EXT-main/tokenizer/rwkv_vocab_v20230424.txt
+  bgem3_path: /home/rwkv/Peter/model/bi/bge-m31
+  rerank_path: /home/rwkv/Peter/model/bi/BAAIbge-reranker-v2-m3
   device: cuda:3
   chat_lora_r: 64
   chat_lora_alpha: 64
 index:
-  enabled: false
+  enabled: true
   service_module: index_service
   is_init_once: true
   front_end:
@@ -67,7 +69,7 @@ index:
   num_workers: 4
   llm_front_end_url: tcp://localhost:7781
 file:
-  enabled: false
+  enabled: true
   service_module: files_service
   db_path: /home/rwkv/Peter/RaqQ-master/src/services/chroma/files_services.db
   front_end:
@@ -80,7 +82,7 @@ file:
     port: 7786
   num_workers: 1
 jsonl2binidx:
-  enabled: false
+  enabled: true
   service_module: jsonl2binidx_service
   front_end:
     host: localhost
@@ -96,7 +98,7 @@ jsonl2binidx:
 tuning:
   enabled: true
   service_module: tuning_service
-  model_path: /home/rwkv/Peter/model/base/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth
+  model_path: /home/rwkv/Peter/model/base/RWKV-x060-World-7B-v2.1-20240507-ctx4096.pth
   project_dir: /home/rwkv/Peter/RaqQ-master/src/services/chroma
   data_file: /home/rwkv/Peter/Data/Telechat5/top_1k
   front_end:

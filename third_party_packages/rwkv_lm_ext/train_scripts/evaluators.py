@@ -8,17 +8,9 @@ os.environ['RWKV_HEAD_SIZE_A'] = '64'
 os.environ['RWKV_T_MAX'] = '4096'
 os.environ["RWKV_MY_TESTING"]='x060'
 os.environ['RWKV_CTXLEN'] = '4096'
-import sys
-import torch
-parent_parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(parent_parent_dir)
-print('Add path', parent_parent_dir)
-from src.model import RWKV
-from src.model_ext import RwkvForSequenceEmbedding, load_ckpt_and_parse_args
-from train_scripts.customer_datasets import ListDataset
+
 from sentence_transformers.evaluation import  SimilarityFunction
 import logging
-import csv
 from sklearn.metrics.pairwise import paired_cosine_distances, paired_euclidean_distances, paired_manhattan_distances
 from scipy.stats import pearsonr, spearmanr
 import numpy as np
@@ -27,7 +19,6 @@ from typing import List, Literal, Optional
 
 logger = logging.getLogger(__name__)
 import torch
-from torch import Tensor
 from torch.utils.data import DataLoader
 
 class EmbeddingSimilarityEvaluator:
@@ -213,87 +204,3 @@ class EmbeddingSimilarityEvaluator:
             return np.mean([all_spearman_cosine, all_spearman_manhattan, all_spearman_euclidean, all_spearman_dot])
         else:
             raise ValueError("Unknown main_similarity value")
-
-
-if __name__ == '__main__':
-    #enable logger to info for debugging
-    logging.basicConfig(level=logging.INFO)
-    sts_file = '/media/yueyulin/bigdata/data/stsbenchmark/stsbenchmark.tsv'
-    import csv
-    eval_data = []
-    with open(sts_file, 'r',encoding='utf-8') as f:
-        reader = csv.DictReader(f, delimiter='\t', quoting=csv.QUOTE_NONE)
-        for row in reader:
-            if row['split'] == 'dev':
-                eval_data.append(row)
-
-    from tokenizer.rwkv_tokenizer import TRIE_TOKENIZER
-    tokenizer_file = os.path.join(parent_parent_dir,'tokenizer','rwkv_vocab_v20230424.txt')
-    tokenizer = TRIE_TOKENIZER(tokenizer_file)
-    
-
-    # define a data collator to tokenize and pad the sentences to the same length
-    pad_id =0
-    embedding_id = 1
-    max_seq_length = 33
-
-    def eval_data_collator(features):
-        sentence1_str = [feature['sentence1'] for feature in features]
-        sentence2_str = [feature['sentence2'] for feature in features]
-        scores = [float(feature['score'])/5.0 for feature in features]
-        sentence1_ids = [tokenizer.encode(sentence)[0:max_seq_length-1]+[embedding_id] for sentence in sentence1_str]
-        sentence2_ids = [tokenizer.encode(sentence)[0:max_seq_length-1]+[embedding_id] for sentence in sentence2_str]
-        # pad the sequences to the same length
-        sentence1_ids = [ids + [pad_id]*(max_seq_length-len(ids)) for ids in sentence1_ids]
-        sentence2_ids = [ids + [pad_id]*(max_seq_length-len(ids)) for ids in sentence2_ids]
-        return {'sentence1':torch.tensor(sentence1_ids,dtype=torch.long),'sentence2':torch.tensor(sentence2_ids,dtype=torch.long),'scores':torch.tensor(scores,dtype=torch.float)}
-    
-    eval_ds = ListDataset(eval_data)
-    print(eval_ds[0])
-    eval_dl = DataLoader(eval_ds, batch_size=16, collate_fn=eval_data_collator)
-    
-
-    base_rwkv_model = '/media/yueyulin/bigdata/models/rwkv6/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth'
-    print('load base model from ',base_rwkv_model)
-    rwkv_args = argparse.Namespace()
-    w = load_ckpt_and_parse_args(base_rwkv_model,rwkv_args)
-    print(rwkv_args)
-    rwkv_args.my_pos_emb = 0
-    rwkv_args.pre_ffn = 0
-    rwkv_args.head_size_divisor = 8
-    rwkv_args.ctx_len = 4096
-    rwkv_args.dropout = 0.1
-    rwkv_args.head_qk = 0
-    rwkv_args.grad_cp = 0
-    rwkv_args.save_per_batches = 10000
-    rwkv_args.my_exit = 300
-    rwkv_args.weight_decay = 0.001
-    rwkv_args.lr_init = 3e-4
-    rwkv_args.lr_final = 1e-5
-    rwkv_args.beta1 = 0.9
-    rwkv_args.beta2 = 0.99
-    rwkv_args.betas = (0.9, 0.99)
-    rwkv_args.layerwise_lr = 1
-    rwkv_args.my_pile_stage = 1
-    rwkv_args.adam_eps = 1e-8
-    rwkv_args.warmup_steps = 50
-    rwkv_args.tiny_att_dim = 0
-    rwkv_args.model_file = base_rwkv_model
-    print(rwkv_args)
-    rwkv_base_model = RWKV(rwkv_args)
-    print(rwkv_base_model)
-    inform = rwkv_base_model.load_state_dict(w)
-    print(inform)
-
-    embedding_model = RwkvForSequenceEmbedding(rwkv_base_model)
-    print(embedding_model)
-    embedding_model = embedding_model.bfloat16()
-    device = 'cuda'
-    embedding_model.to(device)
-    embedding_model.eval()
-    import torch
-    from torch.amp.autocast_mode import autocast
-    with autocast(device_type=device,dtype=torch.bfloat16):
-        evaluator = EmbeddingSimilarityEvaluator(data_loader=eval_dl,main_similarity=SimilarityFunction.COSINE,precision='float32')
-        eval_value = evaluator(embedding_model,output_path='/media/yueyulin/bigdata/output/stsbenchmark',epoch=1,steps=3000)
-        print(eval_value)
