@@ -254,6 +254,7 @@ def jsonl2binidx_manager(client: Jsonl2BinIdxClient):
             # file_name_prefix = file_name.rsplit('.', 1)[0]
             # output_name_endfix = '%s_%s' % (file_name_prefix, get_random_string(4))
             payload_input = payload_file.read().decode("utf-8", errors='ignore')
+
     if st.button("提交") and payload_input:
         binidx_path = client.transform(payload_input, epoch, output_dir, context_len, is_str=True)
         st.write(binidx_path)
@@ -290,6 +291,7 @@ def tuning_manager(client: RWKVPEFTClient ,app_scenario,):
 
     tuning_type = st.selectbox("微调算法:", [ "state", "pissa", "lora"], index=0)
     load_model = st.text_input("基底模型路径:", '/home/rwkv/Peter/model/base/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth', key="load_model", disabled=False)
+
     proj_dir = st.text_input("输出路径:", "", key="proj_dir")
     data_file = st.text_input("训练数据集的路径:(路径中不需要带 bin 和 idx 后缀，仅需文件名称)", "", key="data_file")
     if tuning_type == 'state':
@@ -311,6 +313,7 @@ def tuning_manager(client: RWKVPEFTClient ,app_scenario,):
         lora_alpha = st.number_input("lora_alpha:", min_value=1, value=128, key="lora_alpha", disabled=False)
         lora_dropout = st.number_input("lora_dropout:", min_value=0.0, value=0.01, key="lora_dropout", disabled=False)
         lora_parts = st.text_input("lora_parts:", "att,ffn,time,ln", key="lora_parts", disabled=False)
+
     else:
         lora_r = st.number_input("lora_r:", min_value=1, value=64, key="lora_r")
         micro_bsz = st.number_input("micro_bsz:", min_value=1, value=8, key="micro_bsz")
@@ -323,6 +326,7 @@ def tuning_manager(client: RWKVPEFTClient ,app_scenario,):
         lora_load = st.text_input("lora_load:", "'rwkv-0'", key="lora_load", disabled=False)
         lora_dropout = st.number_input("lora_dropout:", min_value=0.0, value=0.01, key="lora_dropout", disabled=False)
         lora_parts = st.text_input("lora_parts:", "att,ffn,time,ln", key="lora_parts", disabled=False)
+
 
     if st.button("开始"):
         if not proj_dir or not data_file:
@@ -341,6 +345,7 @@ def tuning_manager(client: RWKVPEFTClient ,app_scenario,):
                 train_type='state', dataload=dataload, quant=quant,
                 wandb='statetuning_test'
             )
+
         elif tuning_type == 'pissa':
             client.pissa_train(load_model=load_model, proj_dir=proj_dir, data_file=data_file,
                                       data_type=data_type,

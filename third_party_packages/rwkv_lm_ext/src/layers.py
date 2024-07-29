@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from torch._lowrank import svd_lowrank
 from torch.nn import functional as F
 
 class LoraEmbedding(nn.Module):

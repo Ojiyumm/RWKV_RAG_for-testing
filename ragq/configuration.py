@@ -9,3 +9,4 @@ class Configuration:
 
 # ragq 向量路径
 ragq_base_dir = os.path.dirname(os.path.abspath(__file__))
+

@@ -15,6 +15,7 @@ instruction ='根据给定的短文，回答以下问题：黄循财的是哪国
 token_count = 128
 num_beams =5
 input_text = '黄循财（英语：Lawrence Wong Shyun Tsai，1972年12月18日—），新加坡华裔政治人物，现任新加坡总理兼财政部部长、人民行动党社区基金会主席。他与王乙康和颜金勇共同主持了因应新加坡2019冠状病毒病大流行的多部委工作组。曾任新加坡副总理，教育部、国家发展部、文化、社区及青年部的部长，通讯及新闻部和财政部的第二部长，以及人民行动党副秘书长。[1]黄循财是人民行动党第四代领导层，也是人民行动党中央执行委员会首任副秘书长兼政策论坛顾问.'
+<<<<<<< HEAD
 #state_file = '/home/rwkv/Peter/model/state/kgc/RWKV-x060-World-7B-v2.1-20240507-ctx4096.pth.pth'
 state_file = '/home/rwkv/Peter/model/state/qa/rwkv-2.pth'
 
@@ -24,6 +25,16 @@ state_file = '/home/rwkv/Peter/model/state/qa/rwkv-2.pth'
 # except Exception as e:
 #     import traceback
 #     print(traceback.format_exc())
+=======
+state_file = '/home/rwkv/Peter/model/state/kgc/RWKV-x060-World-7B-v2.1-20240507-ctx4096.pth.pth'
+
+try:
+    beam_results = llm_client.beam_generate(instruction,input_text,token_count,num_beams)
+    print(beam_results)
+except Exception as e:
+    import traceback
+    print(traceback.format_exc())
+>>>>>>> 0c8a9b9853d96c36d788f7c61cfac0dd9b3bd10d
     #for result in beam_results:
     #    print('b=',result)
 
@@ -359,6 +370,7 @@ state_file = '/home/rwkv/Peter/model/state/qa/rwkv-2.pth'
 # input_text = {'input': input_text, 'schema': schema}
 # input_text = json.dumps(input_text, ensure_ascii=False)
 # ctx = f'{cat_char}:{instruction}\n{input_text}\n{bot_char}:'
+<<<<<<< HEAD
 
 input_text = """拜登5日接受ABC电视专访，这是他在6月27日辩论大败后的第一个重要访问；专访长22分钟，下午录影，晚上黄金时段播出，ABC声称，录影未经删剪，原汁原味。访问重点在于回应全国最关心的问题：拜登是否退选？健康状态是否胜任总统工作？拜登高调回答说，他将会选下去，只有上帝的阻止，他才会退出选举。
 而在同一天，拜登到威斯康辛州麦迪逊(Madison)造势，演说中，也同样高调地表示，有人想把他推下台，不让他选下去，但「我在这里明白表态，我绝不退出；四年前我赢了，现在我可以再赢一次。」
@@ -373,3 +385,11 @@ except Exception as e:
     import traceback
     print(traceback.format_exc())
 
+=======
+# try:
+#     output = llm_client.sampling_generate(instruction,input_text,state_file,token_count,template_prompt=ctx)
+#     print('s=',output)
+# except Exception as e:
+#     import traceback
+#     print(traceback.format_exc())
+>>>>>>> 0c8a9b9853d96c36d788f7c61cfac0dd9b3bd10d

@@ -41,7 +41,10 @@ class IndexClient:
         msg = self.socket.recv()
         resp = msgpack.unpackb(msg, raw=False)
         return resp
+<<<<<<< HEAD
 
+=======
+>>>>>>> 0c8a9b9853d96c36d788f7c61cfac0dd9b3bd10d
     def search_nearby(self,text,collection_name):
         cmd = {"cmd": "SEARCH_NEARBY", "text": text, 'collection_name':collection_name}
         self.socket.send(msgpack.packb(cmd, use_bin_type=True))

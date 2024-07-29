@@ -185,6 +185,7 @@ class LLMService:
     #             out_str += tmp
     #             out_last = i + 1
     #     return out_str
+
     def sampling_generate(self,instruction,input_text,state_file,
                           temperature=1.0,
                           top_p=0,
@@ -207,6 +208,7 @@ class LLMService:
                         chunk_len = 256)
         if not template_prompt:
             ctx = f'instruction: 请阅读下文，回答:{instruction}\\ninput:{input_text}\\n\\noutput:'
+
         else:
             ctx = template_prompt
         print('prompt=',ctx)
