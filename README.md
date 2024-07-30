@@ -6,7 +6,7 @@
 
 #### 配置文件ragq.yml
 
-#### 服务断启动
+#### 服务端启动
 
 ```shell
 python3 service.py
