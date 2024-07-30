@@ -6,11 +6,15 @@
 
 #### 配置文件ragq.yml
 
-#### 服务启动
+#### 服务断启动
 
 ```shell
 python3 service.py
 
 ```
 
+#### 客户端启动
+```shell
+streamlit run client.py
+```
 
