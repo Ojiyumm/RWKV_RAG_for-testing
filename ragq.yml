@@ -1,5 +1,5 @@
 llm:
-  enabled: false
+  enabled: true
   service_module: llm_service
   front_end:
     host: localhost
