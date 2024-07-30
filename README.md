@@ -3,6 +3,9 @@
    - rwkv_peft 是微调包 https://github.com/JL-er/RWKV-PEFT
    - rwkv_lm_ext https://github.com/yynil/RWKV_LM_EXT/tree/main
 
+#### 模型下载
+请从https://huggingface.co/BlinkDL下载需要的rwkv模型，然后在配置文件中修改本地地址
+
 #### 服务启动
 
 配置文件为 ragq.yml
