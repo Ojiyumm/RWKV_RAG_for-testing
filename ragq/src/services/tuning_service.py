@@ -89,6 +89,7 @@ class ServiceWorker(_ServiceWorker):
             devices = cmd.get('devices', 1)
             precision = cmd.get('precision', 'bf16')
             grad_cp = cmd.get('grad_cp', 1)
+            print('rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr')
             trainer = RWKVPEFTTrainer(load_model=load_model, proj_dir=proj_dir, data_file=data_file, data_type=data_type,
                                       vocab_size= vocab_size, ctx_len=ctx_len, epoch_steps=epoch_steps,
                                       epoch_count=epoch_count,epoch_begin=epoch_begin,epoch_save=epoch_save,

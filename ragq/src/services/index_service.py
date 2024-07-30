@@ -97,6 +97,7 @@ class ServiceWorker(_ServiceWorker):
             return True    
         elif cmd['cmd'] == 'SEARCH_NEARBY':
             text = cmd["text"]
+            collection_name = cmd['collection_name']
             embedings = self.llm_client.encode([text])["value"]
             print(f"Searching nearby for {text} with embeddings {embedings}")
             chroma_client = chromadb.HttpClient(host=self.chroma_host,

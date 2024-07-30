@@ -2,13 +2,27 @@ import sqlite3
 import uuid
 import time
 
-from src.services.helpers import ServiceWorker as _ServiceWorker
+from src.services import AbstractServiceWorker
 
 table_name = 'file_status'
-status_table_name = 'file_status'
-chunk_table_name = 'chunk_status'
-create_status_table_sql = "create table if not exists file_status (file_path text primary key, status text, last_updated text)"
-create_chunk_table_sql = "create table if not exists chunk_status (file_path text, chunk_id integer, status text,content text,uuid text, last_updated text, primary key(file_path,chunk_id))"
+status_table_name = 'file_status' # 记录文件信息
+chunk_table_name = 'chunk_status' #记录文件块的信息
+create_status_table_sql = ("create table if not exists file_status "
+                           "(file_path text NOT NULL, "
+                           "collection_name text NULL, "
+                           "status text, "
+                           "last_updated text NULL, "
+                           "primary key(file_path, collection_name))")
+
+create_chunk_table_sql = ("create table if not exists chunk_status "
+                          "(file_path text NOT NULL, "
+                          "chunk_id integer NOT NULL,"
+                          "status text,"
+                          "content text,"
+                          "uuid text, "
+                          "last_updated text, "
+                          "primary key(file_path,chunk_id))")
+
 valid_status = ['waitinglist','processing','processed','failed']
 
 class FileStatusManager:
@@ -19,7 +33,19 @@ class FileStatusManager:
         self.conn.execute(create_status_table_sql)
         self.conn.execute(create_chunk_table_sql)
         self.conn.commit()
-    
+
+
+    def add_file(self,file_path,collection_name):
+        cursor = self.conn.cursor()
+        cursor.execute(f"select count(1) from {status_table_name} where file_path = ?"
+                       f" and collection_name = ?", (file_path,))
+        result = cursor.fetchone()
+        if result[0]:
+            return 0
+        cursor.execute(f"insert into {status_table_name} (file_path,collection_name,status,last_updated)"
+                       f" values (?,?,?,datetime('now'))",(file_path,collection_name,'processed'))
+        self.conn.commit()
+        return 1
     def get_file_status(self,file_path):
         cursor = self.conn.cursor()
         cursor.execute(f"select status from {status_table_name} where file_path = ?",(file_path,))
@@ -76,7 +102,7 @@ class FileStatusManager:
         self.conn.close()
 
 
-    def delte_file_chunks(self,file_path):
+    def delete_file_chunks(self,file_path):
         cursor = self.conn.cursor()
         cursor.execute(f"delete from {chunk_table_name} where file_path = ?",(file_path,))
         self.conn.commit()
@@ -89,9 +115,13 @@ class FileStatusManager:
             return None
         return [r[0] for r in result]
     
-    def check_file_exists(self,file_path):
+    def check_file_exists(self,file_path, collection_name=''):
         cursor = self.conn.cursor()
-        cursor.execute(f"select count(*) from {status_table_name} where file_path = ?",(file_path,))
+        if collection_name:
+            cursor.execute(f"select count(*) from {status_table_name} where file_path = ? "
+                           f"and collection_name = ?",(file_path, collection_name))
+        else:
+            cursor.execute(f"select count(*) from {status_table_name} where file_path = ?",(file_path,))
         result = cursor.fetchone()
         return result[0] > 0
     
@@ -113,15 +143,6 @@ class FileStatusManager:
         result = cursor.fetchone()
         return result[0]
     
-class FileStatusMonitorThread:
-    def __init__(self,fsm:FileStatusManager) -> None:
-        self.fsm = fsm
-
-    def run(self):
-        print("Starting FileStatusMonitorThread")
-        while(True):
-            time.sleep(30)
-            print("Checking file status")
 
 def chunk_file_contents(file_path,chunk_size=1024):
     #This is a demo function to chunk a file into smaller pieces
@@ -138,21 +159,28 @@ def chunk_file_contents(file_path,chunk_size=1024):
             chunks.append(str_input)
     return chunks
 
-class ServiceWorker(_ServiceWorker):
+class ServiceWorker(AbstractServiceWorker):
     def init_with_config(self,config):
         self.db_path = config['db_path']
         self.fsm = FileStatusManager(self.db_path)
 
     def process(self,cmd):
         if cmd['cmd'] == 'ADD_FILE':
-            file_path = cmd['file_path']
-            if self.fsm.check_file_exists(file_path):
-                return "File already exists"
+            file_path = cmd.get('file_path', '')
+            collection_name = cmd.get('collection_name', '')
+            code = self.fsm.add_file(file_path,collection_name)
+            if code == 0:
+                return f"File {file_path} already exists in collection {collection_name}"
             else:
-                self.fsm.set_file_status(file_path,'processing')
-                texts = chunk_file_contents(file_path)
-                uuids = self.fsm.add_file_chunks(file_path,texts)
-                return uuids
+                return f"File {file_path} add to collection {collection_name} successfully"
+            # TODO 后续逻辑跟踪chunks状态
+            # if self.fsm.check_file_exists(file_path):
+            #     return "File already exists"
+            # else:
+            #     self.fsm.set_file_status(file_path,'processing')
+            #     texts = chunk_file_contents(file_path)
+            #     uuids = self.fsm.add_file_chunks(file_path,texts)
+            #     return uuids
         elif cmd['cmd'] == 'GET_FILE_STATUS':
             file_path = cmd['file_path']
             status = self.fsm.get_file_status(file_path)

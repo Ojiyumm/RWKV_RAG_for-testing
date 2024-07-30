@@ -190,7 +190,7 @@ def knowledge_manager(index_client: IndexClient, llm_client: LLMClient):
     recall_button = st.button("召回")
 
     if recall_button and query_input:
-        search_results = index_client.search_nearby(query_input)['value']
+        search_results = index_client.search_nearby(query_input, collection_name=st.seesion_state_kb_name)['value']
         documents = search_results["documents"][0]
         st.write(documents)
         cross_scores = llm_client.cross_encode([query_input for i in range(len(documents))], documents)
@@ -234,7 +234,7 @@ def jsonl2binidx_manager(client: Jsonl2BinIdxClient):
 
     st.title("准备微调数据")
     epoch = st.number_input("Epoch:", min_value=1, value=3, key='tuning_epoch', max_value=10)
-    context_len = st.number_input("Context Length:", min_value=1, value=1024, key='tuning_context_len', disabled=True)
+    context_len = st.number_input("Context Length:", min_value=1, value=2048, key='tuning_context_len', disabled=False)
     # 输出路径
     output_dir = st.text_input("输出文件路径:", "/home/rwkv/Peter/Data/Telechat5", key="output_dir", disabled=True)
     # 询问用户输入payload的方式
@@ -253,7 +253,8 @@ def jsonl2binidx_manager(client: Jsonl2BinIdxClient):
             # file_name = payload_file.name
             # file_name_prefix = file_name.rsplit('.', 1)[0]
             # output_name_endfix = '%s_%s' % (file_name_prefix, get_random_string(4))
-            payload_input = payload_file.read().decode("utf-8")
+            payload_input = payload_file.read().decode("utf-8", errors='ignore')
+
     if st.button("提交") and payload_input:
         binidx_path = client.transform(payload_input, epoch, output_dir, context_len, is_str=True)
         st.write(binidx_path)
@@ -267,29 +268,30 @@ def tuning_manager(client: RWKVPEFTClient ,app_scenario,):
     with st.sidebar:
         if app_scenario == tabs_title[1]:
             tuning_base_model = st.selectbox("Base Model:", ["rwkv6_1.6B"], key="tuning_base_model")
-            accelerator = st.text_input("accelerator:", "gpu", key="accelerator", disabled=True)
-            precision = st.selectbox("precision:", ['bf16'], key="precision")
-            quant = st.selectbox("quant:", ['nf4'], key="quant")
-            n_layer = st.number_input("n_layer:", min_value=1, value=24, key="n_layer", disabled=True)
-            n_embd = st.number_input("n_embd:", min_value=1, value=2048, key="n_embd", disabled=True)
-            ctx_len = st.number_input("ctx_len:", min_value=1, value=1024, key="ctx_len", disabled=True)
+            accelerator = st.text_input("accelerator:", "gpu", key="accelerator", disabled=False)
+            precision = st.text_input("precision:",  "bf16", key="precision")
+            quant = st.text_input("quant:", 'nf4', key="quant")
+            n_layer = st.number_input("n_layer:", min_value=1, value=24, key="n_layer", disabled=False)
+            n_embd = st.number_input("n_embd:", min_value=1, value=2048, key="n_embd", disabled=False)
+            ctx_len = st.number_input("ctx_len:", min_value=1, value=1024, key="ctx_len", disabled=False)
             data_type = st.selectbox("data_type:", ['binidx'], key="data_type")
             epoch_save = st.number_input("epoch_save:", min_value=1, value=1, key="epoch_save")
-            vocab_size = st.number_input("vocab_size:", min_value=1, value=65536, key="vocab_size", disabled=True)
-            epoch_begin = st.number_input("epoch_begin:", min_value=0, value=0, key="epoch_begin", disabled=True)
-            pre_ffn = st.number_input("pre_ffn:", min_value=0, value=0, key="pre_ffn", disabled=True)
-            head_qk = st.number_input("head_qk:", min_value=0, value=0, key="head_qk", disabled=True)
-            beta1 = st.number_input("beta1:", min_value=0.0, value=0.9, key="beta1", disabled=True)
-            beta2 = st.number_input("beta2:", min_value=0.0, value=0.99, key="beta2", disabled=True)
-            adam_eps = st.number_input("adam_eps:", min_value=0.0, value=1e-8, key="adam_eps", disabled=True)
+            vocab_size = st.number_input("vocab_size:", min_value=1, value=65536, key="vocab_size", disabled=False)
+            epoch_begin = st.number_input("epoch_begin:", min_value=0, value=0, key="epoch_begin", disabled=False)
+            pre_ffn = st.number_input("pre_ffn:", min_value=0, value=0, key="pre_ffn", disabled=False)
+            head_qk = st.number_input("head_qk:", min_value=0, value=0, key="head_qk", disabled=False)
+            beta1 = st.number_input("beta1:", min_value=0.0, value=0.9, key="beta1", disabled=False)
+            beta2 = st.number_input("beta2:", min_value=0.0, value=0.99, key="beta2", disabled=False)
+            adam_eps = st.number_input("adam_eps:", min_value=0.0, value=1e-8, key="adam_eps", disabled=False)
             my_testing = st.text_input("my_testing:", "x060", key="my_testing", disabled=True)
-            strategy = st.text_input("strategy:", "deepspeed_stage_1", key="strategy", disabled=True)
-            devices = st.number_input("devices:", min_value=1, value=1, key="devices", disabled=True)
-            dataload = st.text_input("dataload:", "pad", key="dataload", disabled=True)
-            grad_cp = st.number_input("grad_cp:", min_value=1, value=1, key="grad_cp", disabled=True)
+            strategy = st.text_input("strategy:", "deepspeed_stage_1", key="strategy", disabled=False)
+            devices = st.number_input("devices:", min_value=1, value=1, key="devices", disabled=False)
+            dataload = st.text_input("dataload:", "pad", key="dataload", disabled=False)
+            grad_cp = st.number_input("grad_cp:", min_value=1, value=1, key="grad_cp", disabled=False)
 
     tuning_type = st.selectbox("微调算法:", [ "state", "pissa", "lora"], index=0)
-    load_model = st.text_input("基底模型路径:", "/home/rwkv/Peter/model/base/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth", key="load_model", disabled=True)
+    load_model = st.text_input("基底模型路径:", '/home/rwkv/Peter/model/base/RWKV-x060-World-1B6-v2.1-20240328-ctx4096.pth', key="load_model", disabled=False)
+
     proj_dir = st.text_input("输出路径:", "", key="proj_dir")
     data_file = st.text_input("训练数据集的路径:(路径中不需要带 bin 和 idx 后缀，仅需文件名称)", "", key="data_file")
     if tuning_type == 'state':
@@ -304,25 +306,27 @@ def tuning_manager(client: RWKVPEFTClient ,app_scenario,):
         lora_r = st.number_input("lora_r:", min_value=1, value=64, key="lora_r")
         micro_bsz = st.number_input("micro_bsz:", min_value=1, value=8, key="micro_bsz")
         epoch_steps = st.number_input("epoch_steps:(如果微调训练数据表较少,建议调小该值)", min_value=1, value=1000, key="epoch_steps")
-        epoch_count = st.number_input("epoch_count:", min_value=1, value=1, key="epoch_count",disabled=True)
+        epoch_count = st.number_input("epoch_count:", min_value=1, value=1, key="epoch_count",disabled=False)
         lr_init = st.number_input("lr_init:", min_value=0.0, value=5e-5, key="lr_init")
         lr_final = st.number_input("lr_final:", min_value=0.0, value=5e-5, key="lr_final")
         lora_load = st.text_input("lora_load:", "'rwkv-0'", key="lora_load", disabled=True)
-        lora_alpha = st.number_input("lora_alpha:", min_value=1, value=128, key="lora_alpha", disabled=True)
-        lora_dropout = st.number_input("lora_dropout:", min_value=0.0, value=0.01, key="lora_dropout", disabled=True)
-        lora_parts = st.text_input("lora_parts:", "att,ffn,time,ln", key="lora_parts", disabled=True)
+        lora_alpha = st.number_input("lora_alpha:", min_value=1, value=128, key="lora_alpha", disabled=False)
+        lora_dropout = st.number_input("lora_dropout:", min_value=0.0, value=0.01, key="lora_dropout", disabled=False)
+        lora_parts = st.text_input("lora_parts:", "att,ffn,time,ln", key="lora_parts", disabled=False)
+
     else:
         lora_r = st.number_input("lora_r:", min_value=1, value=64, key="lora_r")
         micro_bsz = st.number_input("micro_bsz:", min_value=1, value=8, key="micro_bsz")
         epoch_steps = st.number_input("epoch_steps:(如果微调训练数据表较少,建议调小该值)", min_value=1, value=1000, key="epoch_steps")
-        epoch_count = st.number_input("epoch_count:", min_value=1, value=1, key="epoch_count",disabled=True)
+        epoch_count = st.number_input("epoch_count:", min_value=1, value=1, key="epoch_count",disabled=False)
         lr_init = st.number_input("lr_init:", min_value=0.0, value=5e-5, key="lr_init")
         lr_final = st.number_input("lr_final:", min_value=0.0, value=5e-5, key="lr_final")
-        lora_alpha = st.number_input("lora_alpha:", min_value=1, value=128, key="lora_alpha", disabled=True)
-        warmup_steps = st.number_input("warmup_steps:", min_value=0, value=0, key="warmup_steps", disabled=True)
-        lora_load = st.text_input("lora_load:", "'rwkv-0'", key="lora_load", disabled=True)
-        lora_dropout = st.number_input("lora_dropout:", min_value=0.0, value=0.01, key="lora_dropout", disabled=True)
-        lora_parts = st.text_input("lora_parts:", "att,ffn,time,ln", key="lora_parts", disabled=True)
+        lora_alpha = st.number_input("lora_alpha:", min_value=1, value=128, key="lora_alpha", disabled=False)
+        warmup_steps = st.number_input("warmup_steps:", min_value=0, value=0, key="warmup_steps", disabled=False)
+        lora_load = st.text_input("lora_load:", "'rwkv-0'", key="lora_load", disabled=False)
+        lora_dropout = st.number_input("lora_dropout:", min_value=0.0, value=0.01, key="lora_dropout", disabled=False)
+        lora_parts = st.text_input("lora_parts:", "att,ffn,time,ln", key="lora_parts", disabled=False)
+
 
     if st.button("开始"):
         if not proj_dir or not data_file:
@@ -338,7 +342,10 @@ def tuning_manager(client: RWKVPEFTClient ,app_scenario,):
                 beta1=beta1, beta2=beta2, adam_eps=adam_eps,
                 accelerator=accelerator, devices=devices, precision=precision, strategy=strategy,
                 grad_cp=grad_cp, my_testing=my_testing,
-                train_type='state', dataload=dataload, quant=quant, wandb='statetuning_test')
+                train_type='state', dataload=dataload, quant=quant,
+                wandb='statetuning_test'
+            )
+
         elif tuning_type == 'pissa':
             client.pissa_train(load_model=load_model, proj_dir=proj_dir, data_file=data_file,
                                       data_type=data_type,

@@ -166,6 +166,7 @@ class RWKVPEFTTrainer:
     def run(self):
         rank_zero_info("########## work in progress ##########")
         args = self.args
+        print(args)
         if "deepspeed" in args.strategy:
             import deepspeed
         if args.random_seed >= 0:

@@ -14,6 +14,8 @@ def rwkv_quantize(quant_type, weight):
         qweight, qstate= bnb.functional.quantize_fp4((weight.data).to('cuda'))
     elif quant_type=='int8':
         qweight, qstate= bnb.functional.quantize((weight.data).to('cuda'))
+    else:
+        return None, None
     return qweight, qstate
 
 
@@ -26,6 +28,8 @@ def rwkv_dequantize(quant_type, weight, qstate):
         deweight= bnb.functional.dequantize_fp4(weight.data,quant_state=qstate)
     elif quant_type=='int8':
         deweight= bnb.functional.dequantize(weight.data,state=qstate)
+    else:
+        return None
     return deweight
 
 

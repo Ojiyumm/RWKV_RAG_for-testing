@@ -35,13 +35,17 @@ class LLMClient:
         resp = msgpack.unpackb(msg, raw=False)
         return resp
 
-    def sampling_generate(self, instruction, input_text, token_count=128, temperature=1.0, top_p=0):
+    def sampling_generate(self, instruction, input_text, state_file, token_count=128, temperature=1.0,
+                          top_p=0,template_prompt=None):
         cmd = {
             "cmd": "SAMPLING_GENERATE",
             "instruction": instruction,
             "input_text": input_text,
             "token_count": token_count,
-            "top_p": top_p
+            "top_p": top_p,
+            "state_file": state_file,
+            "temperature": temperature,
+            "template_prompt": template_prompt
 
         }
         self.socket.send(msgpack.packb(cmd, use_bin_type=True))
